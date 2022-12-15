@@ -55,9 +55,7 @@ func main() {
 	releaseLeaderElectionOnCancel := true
 	leaderElectionID := "7157fb2e.cos.bf2.dev"
 	probeAddr := ":8081"
-	apiExportName := ""
 
-	flag.StringVar(&apiExportName, "api-export-name", apiExportName, "The name of the APIExport.")
 	flag.StringVar(&metricsAddr, "metrics-bind-address", metricsAddr, "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", probeAddr, "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-election", enableLeaderElection, "Enable leader election for controller manager.")

@@ -18,14 +18,15 @@ package cos
 
 import (
 	"context"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-
+	cosv2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	cosv2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 // ManagedConnectorReconciler reconciles a ManagedConnector object
@@ -45,6 +46,31 @@ func NewManagedConnectorReconciler(mgr manager.Manager) (*ManagedConnectorReconc
 	return r, r.SetupWithManager(mgr)
 }
 
+func (r *ManagedConnectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
+
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&cosv2.ManagedConnector{}, builder.WithPredicates(
+			predicate.Funcs{
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					old, ok := e.ObjectOld.(*cosv2.ManagedConnector)
+					if !ok {
+						return false
+					}
+					current, ok := e.ObjectNew.(*cosv2.ManagedConnector)
+					if !ok {
+						return false
+					}
+
+					return old.Generation != current.Generation
+				},
+				DeleteFunc: func(e event.DeleteEvent) bool {
+					return !e.DeleteStateUnknown
+				},
+			})).
+		Named("ManagedConnectorController").
+		Complete(r)
+}
+
 //+kubebuilder:rbac:groups=cos.bf2.dev,resources=managedconnectors,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cos.bf2.dev,resources=managedconnectors/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=cos.bf2.dev,resources=managedconnectors/finalizers,verbs=update
@@ -53,11 +79,4 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	_ = log.FromContext(ctx)
 
 	return ctrl.Result{}, nil
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *ManagedConnectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&cosv2.ManagedConnector{}).
-		Complete(r)
 }
