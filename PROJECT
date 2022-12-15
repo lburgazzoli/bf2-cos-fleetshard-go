@@ -1,0 +1,17 @@
+domain: bf2.dev
+layout:
+- go.kubebuilder.io/v3
+multigroup: true
+projectName: bf2-cos-fleetshard-go
+repo: gitub.com/lburgazzoli/bf2-cos-fleetshard-go
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: bf2.dev
+  group: cos
+  kind: ManagedConnector
+  path: gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2
+  version: v2
+version: "3"
