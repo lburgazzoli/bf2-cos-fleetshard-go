@@ -19,6 +19,8 @@ package cos
 import (
 	"context"
 	"encoding/json"
+	"time"
+
 	camel "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
 	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/predicates"
@@ -34,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"time"
 )
 
 // ManagedConnectorReconciler reconciles a ManagedConnector object
@@ -105,38 +106,23 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	binding := camel.KameletBinding{}
 	bindingSecret := corev1.Secret{}
-	reify := false
 
 	if err := r.Get(ctx, named, &binding); err != nil {
-		if errors.IsNotFound(err) {
-			reify = true
-		} else {
+		if !errors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
 	}
 	if err := r.Get(ctx, named, &bindingSecret); err != nil {
-		if errors.IsNotFound(err) {
-			reify = true
-		} else {
+		if !errors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
 	}
 
-	if !reify {
-		// this is a case when the reconciliation is triggered either by a change
-		// to the operands or a change in the metadata i.e. the UOW as consequence
-		// of a re-sync
-		reify = connector.Generation == connector.Status.ObservedGeneration
-	}
-
-	if reify {
-		if err := controllerutil.SetControllerReference(&connector, &binding, r.Scheme); err != nil {
-			return ctrl.Result{}, err
-		}
-		if err := controllerutil.SetControllerReference(&binding, &bindingSecret, r.Scheme); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
+	// this is a case when the reconciliation is triggered either by a change
+	// to the operands or a change in the metadata i.e. the UOW as consequence
+	// of a re-sync
+	//
+	// connector.Generation == connector.Status.ObservedGeneration
 
 	c := connector.DeepCopy()
 
@@ -144,10 +130,35 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	//
+	// Update binding & secret
+	//
+
+	b := binding.DeepCopy()
+	bs := bindingSecret.DeepCopy()
+
+	if err := controllerutil.SetControllerReference(c, b, r.Scheme); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := controllerutil.SetControllerReference(b, bs, r.Scheme); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.patch(ctx, &binding, b); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := r.patch(ctx, &bindingSecret, bs); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	//
+	// Update connector
+	//
+
 	c.Status.Deployment = c.Spec.Deployment
 	c.Status.ObservedGeneration = c.Generation
 
-	if err := r.patch(ctx, connector, *c); err != nil {
+	if err := r.patch(ctx, &connector, c); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -172,14 +183,14 @@ func (r *ManagedConnectorReconciler) extract(
 
 func (r *ManagedConnectorReconciler) patch(
 	ctx context.Context,
-	oldConnector cos.ManagedConnector,
-	newConnector cos.ManagedConnector) error {
+	oldResource client.Object,
+	newResource client.Object) error {
 
-	oldJson, err := json.Marshal(oldConnector)
+	oldJson, err := json.Marshal(oldResource)
 	if err != nil {
 		return err
 	}
-	newJson, err := json.Marshal(newConnector)
+	newJson, err := json.Marshal(newResource)
 	if err != nil {
 		return err
 	}
@@ -189,5 +200,9 @@ func (r *ManagedConnectorReconciler) patch(
 		panic(err)
 	}
 
-	return r.Status().Patch(ctx, &oldConnector, client.RawPatch(types.StrategicMergePatchType, patch))
+	if len(patch) == 0 {
+		return nil
+	}
+
+	return r.Status().Patch(ctx, oldResource, client.RawPatch(types.StrategicMergePatchType, patch))
 }
