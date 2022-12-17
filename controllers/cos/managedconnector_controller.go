@@ -251,7 +251,7 @@ func (r *ManagedConnectorReconciler) extractConditions(
 		c := binding.Status.Conditions[i]
 
 		conditions = append(conditions, metav1.Condition{
-			Type:               "binding_" + string(c.Type),
+			Type:               "Workload" + string(c.Type),
 			Status:             metav1.ConditionStatus(c.Status),
 			LastTransitionTime: c.LastTransitionTime,
 			Reason:             c.Reason,
