@@ -18,7 +18,8 @@ package cos
 
 import (
 	"context"
-	"encoding/json"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 
 	camel "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
@@ -28,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -125,10 +125,22 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// connector.Generation == connector.Status.ObservedGeneration
 
 	c := connector.DeepCopy()
+	c.Status.Conditions = r.extractConditions(connector, binding)
 
-	if err := r.extract(ctx, connector, binding); err != nil {
-		return ctrl.Result{}, err
-	}
+	meta.SetStatusCondition(&connector.Status.Conditions, metav1.Condition{
+		Type:               "Deleted",
+		Status:             metav1.ConditionFalse,
+		Reason:             "Unknown",
+		Message:            "Unknown",
+		ObservedGeneration: connector.Spec.Deployment.DeploymentResourceVersion,
+	})
+	meta.SetStatusCondition(&connector.Status.Conditions, metav1.Condition{
+		Type:               "Ready",
+		Status:             metav1.ConditionFalse,
+		Reason:             "Unknown",
+		Message:            "Unknown",
+		ObservedGeneration: connector.Spec.Deployment.DeploymentResourceVersion,
+	})
 
 	//
 	// Update binding & secret
@@ -137,26 +149,79 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	b := binding.DeepCopy()
 	bs := bindingSecret.DeepCopy()
 
-	if err := controllerutil.SetControllerReference(c, b, r.Scheme); err != nil {
-		return ctrl.Result{}, err
-	}
-	if err := controllerutil.SetControllerReference(b, bs, r.Scheme); err != nil {
-		return ctrl.Result{}, err
-	}
+	switch connector.Spec.Deployment.DesiredState {
+	case "ready":
+		if err := controllerutil.SetControllerReference(c, b, r.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
+		if err := controllerutil.SetControllerReference(b, bs, r.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
 
-	if err := r.patch(ctx, &binding, b); err != nil {
-		return ctrl.Result{}, err
-	}
-	if err := r.patch(ctx, &bindingSecret, bs); err != nil {
-		return ctrl.Result{}, err
+		if err := r.patch(ctx, &binding, b); err != nil {
+			return ctrl.Result{}, err
+		}
+		if err := r.patch(ctx, &bindingSecret, bs); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		c.Status.Deployment = c.Spec.Deployment
+		c.Status.ObservedGeneration = c.Generation
+	case "stopped":
+		meta.SetStatusCondition(&connector.Status.Conditions, metav1.Condition{
+			Type:               "Deleted",
+			Status:             metav1.ConditionFalse,
+			Reason:             "Stopping",
+			Message:            "Stopping",
+			ObservedGeneration: connector.Spec.Deployment.DeploymentResourceVersion,
+		})
+
+		if err := r.Delete(ctx, &binding); err != nil {
+			if errors.IsNotFound(err) {
+				meta.SetStatusCondition(&connector.Status.Conditions, metav1.Condition{
+					Type:               "Deleted",
+					Status:             metav1.ConditionTrue,
+					Reason:             "Stopped",
+					Message:            "Stopped",
+					ObservedGeneration: connector.Spec.Deployment.DeploymentResourceVersion,
+				})
+
+				c.Status.Deployment = c.Spec.Deployment
+				c.Status.ObservedGeneration = c.Generation
+			} else {
+				return ctrl.Result{}, err
+			}
+		}
+	case "deleted":
+		meta.SetStatusCondition(&connector.Status.Conditions, metav1.Condition{
+			Type:               "Deleted",
+			Status:             metav1.ConditionFalse,
+			Reason:             "Deleting",
+			Message:            "Deleting",
+			ObservedGeneration: connector.Spec.Deployment.DeploymentResourceVersion,
+		})
+
+		if err := r.Delete(ctx, &binding); err != nil {
+			if errors.IsNotFound(err) {
+				meta.SetStatusCondition(&connector.Status.Conditions, metav1.Condition{
+					Type:               "Deleted",
+					Status:             metav1.ConditionTrue,
+					Reason:             "Deleted",
+					Message:            "Deleted",
+					ObservedGeneration: connector.Spec.Deployment.DeploymentResourceVersion,
+				})
+
+				c.Status.Deployment = c.Spec.Deployment
+				c.Status.ObservedGeneration = c.Generation
+			} else {
+				return ctrl.Result{}, err
+			}
+		}
 	}
 
 	//
 	// Update connector
 	//
-
-	c.Status.Deployment = c.Spec.Deployment
-	c.Status.ObservedGeneration = c.Generation
 
 	if err := r.patch(ctx, &connector, c); err != nil {
 		return ctrl.Result{}, err
@@ -168,34 +233,47 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 func (r *ManagedConnectorReconciler) reify(
 	ctx context.Context,
 	connector cos.ManagedConnector,
-	secret corev1.Secret) error {
-
+	secret corev1.Secret,
+	binding *camel.KameletBinding,
+	bindingSecret *corev1.Secret,
+) error {
 	return nil
 }
 
-func (r *ManagedConnectorReconciler) extract(
-	ctx context.Context,
+func (r *ManagedConnectorReconciler) extractConditions(
 	connector cos.ManagedConnector,
-	binding camel.KameletBinding) error {
+	binding camel.KameletBinding,
+) []metav1.Condition {
 
-	return nil
+	conditions := make([]metav1.Condition, len(binding.Status.Conditions))
+
+	for i := range binding.Status.Conditions {
+		c := binding.Status.Conditions[i]
+
+		conditions = append(conditions, metav1.Condition{
+			Type:               "binding_" + string(c.Type),
+			Status:             metav1.ConditionStatus(c.Status),
+			LastTransitionTime: c.LastTransitionTime,
+			Reason:             c.Reason,
+			Message:            c.Message,
+
+			// use ObservedGeneration to reference the deployment revision the
+			// condition is about
+			ObservedGeneration: connector.Status.Deployment.DeploymentResourceVersion,
+		})
+	}
+
+	return conditions
 }
 
 func (r *ManagedConnectorReconciler) patch(
 	ctx context.Context,
 	oldResource client.Object,
-	newResource client.Object) error {
+	newResource client.Object,
+) error {
 
-	oldJson, err := json.Marshal(oldResource)
-	if err != nil {
-		return err
-	}
-	newJson, err := json.Marshal(newResource)
-	if err != nil {
-		return err
-	}
-
-	patch, err := strategicpatch.CreateTwoWayMergePatch(oldJson, newJson, cos.ManagedConnector{})
+	// NOTE: this is likely not correct
+	patch, err := patch(oldResource, newResource)
 	if err != nil {
 		panic(err)
 	}

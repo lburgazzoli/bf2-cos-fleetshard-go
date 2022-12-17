@@ -68,11 +68,10 @@ type ManagedConnectorSpec struct {
 
 // ManagedConnectorStatus defines the observed state of ManagedConnector
 type ManagedConnectorStatus struct {
-	StatusSpec `json:",inline"`
-
-	ObservedGeneration int64          `json:"observedGeneration,omitempty"`
-	Deployment         DeploymentSpec `json:"deployment"`
-	Connector          StatusSpec     `json:"connector"`
+	Phase              string             `json:"phase"`
+	Conditions         []metav1.Condition `json:"conditions,omitempty"`
+	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
+	Deployment         DeploymentSpec     `json:"deployment"`
 }
 
 //+kubebuilder:object:root=true
