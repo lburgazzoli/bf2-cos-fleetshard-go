@@ -18,6 +18,8 @@ package cos
 
 import (
 	"context"
+	"fmt"
+	errors2 "github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
@@ -118,29 +120,24 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	// this is a case when the reconciliation is triggered either by a change
-	// to the operands or a change in the metadata i.e. the UOW as consequence
-	// of a re-sync
-	//
-	// connector.Generation == connector.Status.ObservedGeneration
-
 	c := connector.DeepCopy()
-	c.Status.Conditions = r.extractConditions(connector, binding)
 
-	meta.SetStatusCondition(&connector.Status.Conditions, metav1.Condition{
-		Type:               "Deleted",
-		Status:             metav1.ConditionFalse,
-		Reason:             "Unknown",
-		Message:            "Unknown",
-		ObservedGeneration: connector.Spec.Deployment.DeploymentResourceVersion,
-	})
-	meta.SetStatusCondition(&connector.Status.Conditions, metav1.Condition{
+	if err := extractConditions(&connector.Status.Conditions, binding); err != nil {
+		return ctrl.Result{}, errors2.Wrap(err, "unable to compute binding conditions")
+	}
+
+	ready := metav1.Condition{
 		Type:               "Ready",
 		Status:             metav1.ConditionFalse,
 		Reason:             "Unknown",
 		Message:            "Unknown",
 		ObservedGeneration: connector.Spec.Deployment.DeploymentResourceVersion,
-	})
+	}
+
+	if connector.Generation != connector.Status.ObservedGeneration {
+		ready.Reason = "Provisioning"
+		ready.Message = "Provisioning"
+	}
 
 	//
 	// Update binding & secret
@@ -158,6 +155,8 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return ctrl.Result{}, err
 		}
 
+		binding.Annotations["cos.bf2.dev/deployment.revision"] = fmt.Sprintf("%d", connector.Spec.Deployment.DeploymentResourceVersion)
+
 		if err := r.patch(ctx, &binding, b); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -165,26 +164,22 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return ctrl.Result{}, err
 		}
 
+		ready.Status = metav1.ConditionTrue
+		ready.Reason = "Provisioned"
+		ready.Message = "Provisioned"
+
 		c.Status.Deployment = c.Spec.Deployment
 		c.Status.ObservedGeneration = c.Generation
 	case "stopped":
-		meta.SetStatusCondition(&connector.Status.Conditions, metav1.Condition{
-			Type:               "Deleted",
-			Status:             metav1.ConditionFalse,
-			Reason:             "Stopping",
-			Message:            "Stopping",
-			ObservedGeneration: connector.Spec.Deployment.DeploymentResourceVersion,
-		})
+		ready.Status = metav1.ConditionFalse
+		ready.Reason = "Stopping"
+		ready.Message = "Stopping"
 
 		if err := r.Delete(ctx, &binding); err != nil {
 			if errors.IsNotFound(err) {
-				meta.SetStatusCondition(&connector.Status.Conditions, metav1.Condition{
-					Type:               "Deleted",
-					Status:             metav1.ConditionTrue,
-					Reason:             "Stopped",
-					Message:            "Stopped",
-					ObservedGeneration: connector.Spec.Deployment.DeploymentResourceVersion,
-				})
+				ready.Status = metav1.ConditionFalse
+				ready.Reason = "Stopped"
+				ready.Message = "Stopped"
 
 				c.Status.Deployment = c.Spec.Deployment
 				c.Status.ObservedGeneration = c.Generation
@@ -193,23 +188,16 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			}
 		}
 	case "deleted":
-		meta.SetStatusCondition(&connector.Status.Conditions, metav1.Condition{
-			Type:               "Deleted",
-			Status:             metav1.ConditionFalse,
-			Reason:             "Deleting",
-			Message:            "Deleting",
-			ObservedGeneration: connector.Spec.Deployment.DeploymentResourceVersion,
-		})
+		ready.Status = metav1.ConditionFalse
+		ready.Reason = "Deleting"
+		ready.Message = "Deleting"
 
 		if err := r.Delete(ctx, &binding); err != nil {
+
 			if errors.IsNotFound(err) {
-				meta.SetStatusCondition(&connector.Status.Conditions, metav1.Condition{
-					Type:               "Deleted",
-					Status:             metav1.ConditionTrue,
-					Reason:             "Deleted",
-					Message:            "Deleted",
-					ObservedGeneration: connector.Spec.Deployment.DeploymentResourceVersion,
-				})
+				ready.Status = metav1.ConditionFalse
+				ready.Reason = "Deleted"
+				ready.Message = "Deleted"
 
 				c.Status.Deployment = c.Spec.Deployment
 				c.Status.ObservedGeneration = c.Generation
@@ -222,6 +210,8 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	//
 	// Update connector
 	//
+
+	meta.SetStatusCondition(&c.Status.Conditions, ready)
 
 	if err := r.patch(ctx, &connector, c); err != nil {
 		return ctrl.Result{}, err
@@ -238,32 +228,6 @@ func (r *ManagedConnectorReconciler) reify(
 	bindingSecret *corev1.Secret,
 ) error {
 	return nil
-}
-
-func (r *ManagedConnectorReconciler) extractConditions(
-	connector cos.ManagedConnector,
-	binding camel.KameletBinding,
-) []metav1.Condition {
-
-	conditions := make([]metav1.Condition, len(binding.Status.Conditions))
-
-	for i := range binding.Status.Conditions {
-		c := binding.Status.Conditions[i]
-
-		conditions = append(conditions, metav1.Condition{
-			Type:               "Workload" + string(c.Type),
-			Status:             metav1.ConditionStatus(c.Status),
-			LastTransitionTime: c.LastTransitionTime,
-			Reason:             c.Reason,
-			Message:            c.Message,
-
-			// use ObservedGeneration to reference the deployment revision the
-			// condition is about
-			ObservedGeneration: connector.Status.Deployment.DeploymentResourceVersion,
-		})
-	}
-
-	return conditions
 }
 
 func (r *ManagedConnectorReconciler) patch(
