@@ -55,21 +55,19 @@ func Reify(
 
 	switch meta.ConnectorType {
 	case ConnectorTypeSource:
-		binding.Spec.Source.Ref = &corev1.ObjectReference{
-			APIVersion: "camel.apache.org/v1alpha1",
-			Kind:       "Kamelet",
-			Name:       meta.Kamelets.Adapter.Name,
-		}
+		src, err := NewEndpointBuilder().
+			ApiVersion("camel.apache.org/v1alpha1").
+			Kind("Kamelet").
+			Name(meta.Kamelets.Adapter.Name).
+			Property("id", connector.Spec.ConnectorID+"-source").
+			PropertiesFrom(config, meta.Kamelets.Adapter.Prefix).
+			Build()
 
-		sourceProperties := map[string]interface{}{
-			"id": connector.Spec.ConnectorID + "-source",
-		}
-
-		setEndpointProperties(sourceProperties, config, meta.Kamelets.Adapter.Prefix)
-
-		if err := setProperties(&binding.Spec.Source, sourceProperties); err != nil {
+		if err != nil {
 			return binding, bindingSecret, bindingConfig, errors.Wrap(err, "error setting source properties")
 		}
+
+		binding.Spec.Source = src
 
 		binding.Spec.Sink.Ref = &corev1.ObjectReference{
 			APIVersion: "camel.apache.org/v1alpha1",
