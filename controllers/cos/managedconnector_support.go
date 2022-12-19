@@ -17,31 +17,13 @@ limitations under the License.
 package cos
 
 import (
-	"encoding/json"
 	camel "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
 	errors2 "github.com/pkg/errors"
 	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 )
-
-func patch(oldResource client.Object, newResource client.Object) ([]byte, error) {
-
-	oldJson, err := json.Marshal(oldResource)
-	if err != nil {
-		return nil, err
-	}
-	newJson, err := json.Marshal(newResource)
-	if err != nil {
-		return nil, err
-	}
-
-	// NOTE: this is likely not correct
-	return strategicpatch.CreateTwoWayMergePatch(oldJson, newJson, cos.ManagedConnector{})
-}
 
 func extractConditions(conditions *[]metav1.Condition, binding camel.KameletBinding) error {
 
@@ -69,4 +51,21 @@ func extractConditions(conditions *[]metav1.Condition, binding camel.KameletBind
 	}
 
 	return nil
+}
+
+func readyCondition(connector cos.ManagedConnector) metav1.Condition {
+	ready := metav1.Condition{
+		Type:               "Ready",
+		Status:             metav1.ConditionFalse,
+		Reason:             "Unknown",
+		Message:            "Unknown",
+		ObservedGeneration: connector.Spec.Deployment.DeploymentResourceVersion,
+	}
+
+	if connector.Generation != connector.Status.ObservedGeneration {
+		ready.Reason = "Provisioning"
+		ready.Message = "Provisioning"
+	}
+
+	return ready
 }

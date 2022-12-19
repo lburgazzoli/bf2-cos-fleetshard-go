@@ -24,6 +24,32 @@ func init() {
 	SchemeBuilder.Register(&ManagedConnector{}, &ManagedConnectorList{})
 }
 
+type DesiredStateType string
+
+const (
+	DesiredStateReady   DesiredStateType = "ready"
+	DesiredStateDeleted DesiredStateType = "deleted"
+	DesiredStateStopped DesiredStateType = "stopped"
+)
+
+// KafkaSpec ---
+type KafkaSpec struct {
+	ID string `json:"id"`
+
+	// +required
+	// +kubebuilder:validation:Required
+	URL string `json:"url"`
+}
+
+// ServiceResgistrySpec ---
+type ServiceResgistrySpec struct {
+	ID string `json:"id"`
+
+	// +required
+	// +kubebuilder:validation:Required
+	URL string `json:"url"`
+}
+
 // DeploymentSpec ---
 type DeploymentSpec struct {
 	// +required
@@ -40,7 +66,13 @@ type DeploymentSpec struct {
 
 	// +required
 	// +kubebuilder:validation:Required
-	DesiredState string `json:"desiredState"`
+	DesiredState DesiredStateType `json:"desiredState"`
+
+	// +required
+	// +kubebuilder:validation:Required
+	Kafka KafkaSpec `json:"kafka"`
+
+	ServiceRegistry *ServiceResgistrySpec `json:"serviceRegistry,omitempty"`
 }
 
 // ManagedConnectorSpec defines the desired state of ManagedConnector

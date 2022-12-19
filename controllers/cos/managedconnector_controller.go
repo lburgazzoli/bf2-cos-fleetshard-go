@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	errors2 "github.com/pkg/errors"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
@@ -126,28 +127,18 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, errors2.Wrap(err, "unable to compute binding conditions")
 	}
 
-	ready := metav1.Condition{
-		Type:               "Ready",
-		Status:             metav1.ConditionFalse,
-		Reason:             "Unknown",
-		Message:            "Unknown",
-		ObservedGeneration: connector.Spec.Deployment.DeploymentResourceVersion,
-	}
-
-	if connector.Generation != connector.Status.ObservedGeneration {
-		ready.Reason = "Provisioning"
-		ready.Message = "Provisioning"
-	}
+	meta.SetStatusCondition(&c.Status.Conditions, readyCondition(connector))
 
 	//
 	// Update binding & secret
 	//
 
-	b := binding.DeepCopy()
-	bs := bindingSecret.DeepCopy()
-
 	switch connector.Spec.Deployment.DesiredState {
-	case "ready":
+	case cos.DesiredStateReady:
+
+		b := binding.DeepCopy()
+		bs := bindingSecret.DeepCopy()
+
 		if err := controllerutil.SetControllerReference(c, b, r.Scheme); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -157,29 +148,35 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 		binding.Annotations["cos.bf2.dev/deployment.revision"] = fmt.Sprintf("%d", connector.Spec.Deployment.DeploymentResourceVersion)
 
-		if err := r.patch(ctx, &binding, b); err != nil {
+		if err := controller.Patch(r, ctx, &binding, b); err != nil {
 			return ctrl.Result{}, err
 		}
-		if err := r.patch(ctx, &bindingSecret, bs); err != nil {
+		if err := controller.Patch(r, ctx, &bindingSecret, bs); err != nil {
 			return ctrl.Result{}, err
 		}
 
-		ready.Status = metav1.ConditionTrue
-		ready.Reason = "Provisioned"
-		ready.Message = "Provisioned"
+		controller.UpdateStatusCondition(&connector.Status.Conditions, "Ready", func(condition *metav1.Condition) {
+			condition.Status = metav1.ConditionTrue
+			condition.Reason = "Provisioned"
+			condition.Message = "Provisioned"
+		})
 
 		c.Status.Deployment = c.Spec.Deployment
 		c.Status.ObservedGeneration = c.Generation
-	case "stopped":
-		ready.Status = metav1.ConditionFalse
-		ready.Reason = "Stopping"
-		ready.Message = "Stopping"
+	case cos.DesiredStateStopped:
+		controller.UpdateStatusCondition(&connector.Status.Conditions, "Ready", func(condition *metav1.Condition) {
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = "Stopping"
+			condition.Message = "Stopping"
+		})
 
 		if err := r.Delete(ctx, &binding); err != nil {
 			if errors.IsNotFound(err) {
-				ready.Status = metav1.ConditionFalse
-				ready.Reason = "Stopped"
-				ready.Message = "Stopped"
+				controller.UpdateStatusCondition(&connector.Status.Conditions, "Ready", func(condition *metav1.Condition) {
+					condition.Status = metav1.ConditionFalse
+					condition.Reason = "Stopped"
+					condition.Message = "Stopped"
+				})
 
 				c.Status.Deployment = c.Spec.Deployment
 				c.Status.ObservedGeneration = c.Generation
@@ -187,17 +184,21 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				return ctrl.Result{}, err
 			}
 		}
-	case "deleted":
-		ready.Status = metav1.ConditionFalse
-		ready.Reason = "Deleting"
-		ready.Message = "Deleting"
+	case cos.DesiredStateDeleted:
+		controller.UpdateStatusCondition(&connector.Status.Conditions, "Ready", func(condition *metav1.Condition) {
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = "Deleting"
+			condition.Message = "Deleting"
+		})
 
 		if err := r.Delete(ctx, &binding); err != nil {
 
 			if errors.IsNotFound(err) {
-				ready.Status = metav1.ConditionFalse
-				ready.Reason = "Deleted"
-				ready.Message = "Deleted"
+				controller.UpdateStatusCondition(&connector.Status.Conditions, "Ready", func(condition *metav1.Condition) {
+					condition.Status = metav1.ConditionFalse
+					condition.Reason = "Deleted"
+					condition.Message = "Deleted"
+				})
 
 				c.Status.Deployment = c.Spec.Deployment
 				c.Status.ObservedGeneration = c.Generation
@@ -211,9 +212,7 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Update connector
 	//
 
-	meta.SetStatusCondition(&c.Status.Conditions, ready)
-
-	if err := r.patch(ctx, &connector, c); err != nil {
+	if err := controller.PatchStatus(r, ctx, &connector, c); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -221,30 +220,11 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 }
 
 func (r *ManagedConnectorReconciler) reify(
-	ctx context.Context,
 	connector cos.ManagedConnector,
 	secret corev1.Secret,
-	binding *camel.KameletBinding,
-	bindingSecret *corev1.Secret,
-) error {
-	return nil
-}
+) (camel.KameletBinding, corev1.Secret, error) {
+	binding := camel.KameletBinding{}
+	bindingSecret := corev1.Secret{}
 
-func (r *ManagedConnectorReconciler) patch(
-	ctx context.Context,
-	oldResource client.Object,
-	newResource client.Object,
-) error {
-
-	// NOTE: this is likely not correct
-	patch, err := patch(oldResource, newResource)
-	if err != nil {
-		panic(err)
-	}
-
-	if len(patch) == 0 {
-		return nil
-	}
-
-	return r.Status().Patch(ctx, oldResource, client.RawPatch(types.StrategicMergePatchType, patch))
+	return binding, bindingSecret, nil
 }
