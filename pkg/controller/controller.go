@@ -10,8 +10,8 @@ import (
 )
 
 func Patch(
-	c client.Client,
 	ctx context.Context,
+	c client.Client,
 	source client.Object,
 	target client.Object,
 ) error {
@@ -29,8 +29,8 @@ func Patch(
 }
 
 func PatchStatus(
-	c client.Client,
 	ctx context.Context,
+	c client.Client,
 	source client.Object,
 	target client.Object,
 ) error {

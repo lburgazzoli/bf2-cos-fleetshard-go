@@ -18,11 +18,18 @@ package cos
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	errors2 "github.com/pkg/errors"
+	camel2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/camel"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources/configmaps"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources/secrets"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sort"
+	"strings"
 	"time"
 
 	camel "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
@@ -101,6 +108,7 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// we'll ignore notification for resources not with the same UOW.
 	// we'll need to wait for a new notification.
+
 	if connector.Annotations["cos.bf2.dev/uow"] != secret.Annotations["cos.bf2.dev/uow"] {
 		return ctrl.Result{
 			RequeueAfter: 1 * time.Second,
@@ -109,6 +117,7 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	binding := camel.KameletBinding{}
 	bindingSecret := corev1.Secret{}
+	bindingConfig := corev1.ConfigMap{}
 
 	if err := r.Get(ctx, named, &binding); err != nil {
 		if !errors.IsNotFound(err) {
@@ -116,6 +125,11 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 	if err := r.Get(ctx, named, &bindingSecret); err != nil {
+		if !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+	}
+	if err := r.Get(ctx, named, &bindingConfig); err != nil {
 		if !errors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
@@ -136,23 +150,47 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	switch connector.Spec.Deployment.DesiredState {
 	case cos.DesiredStateReady:
 
-		b := binding.DeepCopy()
-		bs := bindingSecret.DeepCopy()
-
-		if err := controllerutil.SetControllerReference(c, b, r.Scheme); err != nil {
-			return ctrl.Result{}, err
-		}
-		if err := controllerutil.SetControllerReference(b, bs, r.Scheme); err != nil {
+		b, bs, bc, err := camel2.Reify(connector, secret)
+		if err != nil {
 			return ctrl.Result{}, err
 		}
 
-		binding.Annotations["cos.bf2.dev/deployment.revision"] = fmt.Sprintf("%d", connector.Spec.Deployment.DeploymentResourceVersion)
-
-		if err := controller.Patch(r, ctx, &binding, b); err != nil {
+		scs, err := secrets.ComputeDigest(bs)
+		if err != nil {
 			return ctrl.Result{}, err
 		}
-		if err := controller.Patch(r, ctx, &bindingSecret, bs); err != nil {
+
+		ccs, err := configmaps.ComputeDigest(bc)
+		if err != nil {
 			return ctrl.Result{}, err
+		}
+
+		tcs, err := ComputeTraitsDigest(b)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		b.Spec.Integration.Traits.Environment.Vars = make([]string, 0)
+		b.Spec.Integration.Traits.Environment.Vars = append(b.Spec.Integration.Traits.Environment.Vars, "CONNECTOR_ID="+c.Spec.ConnectorID)
+		b.Spec.Integration.Traits.Environment.Vars = append(b.Spec.Integration.Traits.Environment.Vars, "CONNECTOR_DEPLOYMENT_ID="+c.Spec.DeploymentID)
+		b.Spec.Integration.Traits.Environment.Vars = append(b.Spec.Integration.Traits.Environment.Vars, "CONNECTOR_SECRET_NAME="+bs.Name)
+		b.Spec.Integration.Traits.Environment.Vars = append(b.Spec.Integration.Traits.Environment.Vars, "CONNECTOR_CONFIGMAP_NAME="+bc.Name)
+		b.Spec.Integration.Traits.Environment.Vars = append(b.Spec.Integration.Traits.Environment.Vars, "CONNECTOR_SECRET_CHECKSUM="+scs)
+		b.Spec.Integration.Traits.Environment.Vars = append(b.Spec.Integration.Traits.Environment.Vars, "CONNECTOR_CONFIGMAP_CHECKSUM="+ccs)
+		b.Spec.Integration.Traits.Environment.Vars = append(b.Spec.Integration.Traits.Environment.Vars, "CONNECTOR_TRAITS_CHECKSUM="+tcs)
+
+		//	"CONNECTOR_SECRET_NAME=" + bs.Name,
+		//	"CONNECTOR_SECRET_CHECKSUM=" + secrets.ComputeDigest(bs),
+		//}
+
+		if err := r.PatchSubresource(ctx, c, &bindingSecret, &bs); err != nil {
+			return ctrl.Result{}, errors2.Wrap(err, "unable to patch binding secret")
+		}
+		if err := r.PatchSubresource(ctx, c, &bindingConfig, &bc); err != nil {
+			return ctrl.Result{}, errors2.Wrap(err, "unable to patch binding config")
+		}
+		if err := r.PatchSubresource(ctx, c, &binding, &b); err != nil {
+			return ctrl.Result{}, errors2.Wrap(err, "unable to patch binding")
 		}
 
 		controller.UpdateStatusCondition(&connector.Status.Conditions, "Ready", func(condition *metav1.Condition) {
@@ -212,19 +250,64 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Update connector
 	//
 
-	if err := controller.PatchStatus(r, ctx, &connector, c); err != nil {
+	if err := controller.PatchStatus(ctx, r.Client, &connector, c); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *ManagedConnectorReconciler) reify(
-	connector cos.ManagedConnector,
-	secret corev1.Secret,
-) (camel.KameletBinding, corev1.Secret, error) {
-	binding := camel.KameletBinding{}
-	bindingSecret := corev1.Secret{}
+func (r *ManagedConnectorReconciler) PatchSubresource(
+	ctx context.Context,
+	connector *cos.ManagedConnector,
+	source client.Object,
+	target client.Object,
+) error {
 
-	return binding, bindingSecret, nil
+	if err := controllerutil.SetControllerReference(connector, target, r.Scheme); err != nil {
+		return err
+	}
+
+	target.GetAnnotations()["cos.bf2.dev/deployment.revision"] = fmt.Sprintf("%d", connector.Spec.Deployment.DeploymentResourceVersion)
+
+	return controller.Patch(ctx, r.Client, source, target)
+}
+
+func ComputeTraitsDigest(resource camel.KameletBinding) (string, error) {
+	hash := sha256.New()
+
+	if _, err := hash.Write([]byte(resource.Namespace)); err != nil {
+		return "", err
+	}
+	if _, err := hash.Write([]byte(resource.Name)); err != nil {
+		return "", err
+	}
+
+	keys := make([]string, 0, len(resource.Annotations))
+
+	for k := range resource.Annotations {
+		if !strings.HasPrefix(k, "trait.camel.apache.org/") {
+			continue
+		}
+
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		v := resource.Annotations[k]
+
+		if _, err := hash.Write([]byte(k)); err != nil {
+			return "", err
+		}
+		if _, err := hash.Write([]byte(v)); err != nil {
+			return "", err
+		}
+	}
+
+	// Add a letter at the beginning and use URL safe encoding
+	digest := "v" + base64.RawURLEncoding.EncodeToString(hash.Sum(nil))
+
+	return digest, nil
 }

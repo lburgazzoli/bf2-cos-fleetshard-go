@@ -1,51 +1,71 @@
 package camel
 
 import (
-	camel "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
-	"github.com/pkg/errors"
+	"encoding/base64"
+	"fmt"
 	"github.com/stoewer/go-strcase"
 	corev1 "k8s.io/api/core/v1"
 	"strings"
 )
 
-type EndpointBuilder struct {
-	ref        corev1.ObjectReference
-	properties map[string]interface{}
-}
+func extractSecrets(
+	config map[string]interface{},
+	secret *corev1.Secret) error {
 
-func (builder *EndpointBuilder) ApiVersion(val string) *EndpointBuilder {
-	builder.ref.APIVersion = val
-	return builder
-}
-func (builder *EndpointBuilder) Kind(val string) *EndpointBuilder {
-	builder.ref.Kind = val
-	return builder
-}
-func (builder *EndpointBuilder) Name(val string) *EndpointBuilder {
-	builder.ref.Name = val
-	return builder
-}
-func (builder *EndpointBuilder) Property(key string, val interface{}) *EndpointBuilder {
-	builder.properties[key] = val
-	return builder
-}
-func (builder *EndpointBuilder) Properties(properties map[string]interface{}) *EndpointBuilder {
-	for k, v := range properties {
-		// rude check, it should be enhanced
-		if _, ok := v.(map[string]interface{}); ok {
-			continue
+	for k, v := range config {
+		switch t := v.(type) {
+		case map[string]interface{}:
+			kind := t["kind"]
+			value := t["value"]
+
+			if kind != "base64" {
+				return fmt.Errorf("unsupported kind: %s", kind)
+			}
+
+			decoded, err := base64.StdEncoding.DecodeString(fmt.Sprintf("%v", value))
+			if err != nil {
+				return fmt.Errorf("error decoding secret: %s", k)
+			}
+
+			secret.StringData[k] = string(decoded)
+
+			break
+		default:
+			break
 		}
-
-		k = strcase.LowerCamelCase(k)
-
-		builder.properties[k] = v
 	}
 
-	return builder
+	return nil
 }
 
-func (builder *EndpointBuilder) PropertiesFrom(properties map[string]interface{}, prefix string) *EndpointBuilder {
-	for k, v := range properties {
+func extractConfig(
+	config map[string]interface{},
+	configMap *corev1.ConfigMap) error {
+
+	configMap.Data["camel.main.route-controller-supervise-enabled"] = "true"
+	configMap.Data["camel.main.route-controller-unhealthy-on-exhausted"] = "true"
+
+	configMap.Data["camel.main.load-health-checks"] = "true"
+	configMap.Data["camel.health.routesEnabled"] = "true"
+	configMap.Data["camel.health.consumersEnabled"] = "true"
+	configMap.Data["camel.health.registryEnabled"] = "true"
+
+	// TODO: must be configurable
+	configMap.Data["camel.main.route-controller-backoff-delay"] = "10s"
+	configMap.Data["camel.main.route-controller-initial-delay"] = "0s"
+	configMap.Data["camel.main.route-controller-backoff-multiplier"] = "1"
+	configMap.Data["camel.main.route-controller-backoff-max-attempts"] = "6"
+
+	// TODO: must be configurable
+	configMap.Data["camel.main.exchange-factory"] = "prototype"
+	configMap.Data["camel.main.exchange-factory-capacity"] = "100"
+	configMap.Data["camel.main.exchange-factory-statistics-enabled"] = "false"
+
+	return nil
+}
+
+func setEndpointProperties(properties map[string]interface{}, config map[string]interface{}, prefix string) {
+	for k, v := range config {
 		// rude check, it should be enhanced
 		if _, ok := v.(map[string]interface{}); ok {
 			continue
@@ -55,29 +75,7 @@ func (builder *EndpointBuilder) PropertiesFrom(properties map[string]interface{}
 			k = strings.TrimPrefix(k, prefix)
 			k = strcase.LowerCamelCase(k)
 
-			builder.properties[k] = v
+			properties[k] = v
 		}
-	}
-
-	return builder
-}
-func (builder *EndpointBuilder) Build() (camel.Endpoint, error) {
-	ref := builder.ref
-
-	answer := camel.Endpoint{
-		Ref: &ref,
-	}
-
-	if err := setProperties(&answer, builder.properties); err != nil {
-		return answer, errors.Wrap(err, "error setting source properties")
-	}
-
-	return answer, nil
-}
-
-func NewEndpointBuilder() *EndpointBuilder {
-	return &EndpointBuilder{
-		ref:        corev1.ObjectReference{},
-		properties: make(map[string]interface{}),
 	}
 }

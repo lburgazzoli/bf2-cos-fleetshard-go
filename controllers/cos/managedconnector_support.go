@@ -18,7 +18,7 @@ package cos
 
 import (
 	camel "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
-	errors2 "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +34,7 @@ func extractConditions(conditions *[]metav1.Condition, binding camel.KameletBind
 
 		gen, err := strconv.ParseInt(binding.Annotations["cos.bf2.dev/deployment.revision"], 10, 64)
 		if err != nil {
-			return errors2.Wrap(err, "unable to determine revision")
+			return errors.Wrap(err, "unable to determine revision")
 		}
 
 		meta.SetStatusCondition(conditions, metav1.Condition{
