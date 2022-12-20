@@ -5,25 +5,88 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	cosv2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources/secrets"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 )
 
 func TestReify(t *testing.T) {
 
+	var err error
+	var secret corev1.Secret
+
+	err = secrets.SetStructuredData(&secret, "serviceAccount", ServiceAccount{
+		ClientID:     "225143db-c506-4f3c-9925-0772a2d825cb",
+		ClientSecret: "YWFr",
+	})
+
+	assert.Nil(t, err)
+
+	err = secrets.SetStructuredData(&secret, "meta", ShardMetadata{
+		Annotations: map[string]string{
+			"trait.camel.apache.org/container.request-cpu":                "0.20",
+			"trait.camel.apache.org/container.request-memory":             "128M",
+			"trait.camel.apache.org/deployment.progress-deadline-seconds": "30",
+		},
+		ConnectorImage:       "quay.io/foo/bar:1.0",
+		ConnectorType:        "source",
+		ConnectorRevision:    1,
+		Consumes:             "application/octet-stream",
+		Produces:             "application/octet-stream",
+		ErrorHandlerStrategy: "stop",
+		Kamelets: Kamelets{
+			Adapter: EndpointKamelet{
+				Name:   "cos-azure-storage-blob-source",
+				Prefix: "azure",
+			},
+			Kafka: EndpointKamelet{
+				Name:   "cos-kafka-sink",
+				Prefix: "kafka",
+			},
+		},
+		Operators: []Operator{
+			{
+				Type:    "camel-connector-operator",
+				Version: "[1.0.0,2.0.0)",
+			},
+		},
+	})
+
+	assert.Nil(t, err)
+
+	err = secrets.SetStructuredData(&secret, "connector", map[string]interface{}{
+		"azure_access_key": map[string]interface{}{
+			"kind":  "base64",
+			"value": "YWFr",
+		},
+		"azure_account_name":   "foo",
+		"azure_container_name": "foo/csv/1",
+		"data_shape": map[string]interface{}{
+			"produces": map[string]interface{}{
+				"format": "application/octet-stream",
+			},
+		},
+		"error_handler": map[string]interface{}{
+			"stop": map[string]interface{}{},
+		},
+		"kafka_topic": "bar",
+	})
+
+	assert.Nil(t, err)
+
 	b, bs, bc, err := Reify(
 		cosv2.ManagedConnector{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "mctr-foo",
+				Namespace: "mctr-baz",
+			},
 			Spec: cosv2.ManagedConnectorSpec{
-				ConnectorID: "cid",
+				ConnectorID:  "cid",
+				DeploymentID: "did",
 			},
 		},
-		corev1.Secret{
-			Data: map[string][]byte{
-				"connector":      []byte("{\"azure_access_key\":{\"kind\":\"base64\",\"value\":\"YWFr\"},\"azure_account_name\":\"foo\",\"azure_container_name\":\"foo/csv/dir2\",\"data_shape\":{\"produces\":{\"format\":\"application/octet-stream\"}},\"error_handler\":{\"stop\":{}},\"kafka_topic\":\"techv-topic\"}"),
-				"meta":           []byte("{\"annotations\":{\"trait.camel.apache.org/container.request-cpu\":\"0.20\",\"trait.camel.apache.org/container.request-memory\":\"128M\",\"trait.camel.apache.org/deployment.progress-deadline-seconds\":\"30\"},\"connector_image\":\"quay.io/foo/bar:89015f237880c5b81a2d3b4587f3ec0692a83cea\",\"connector_revision\":74,\"connector_type\":\"source\",\"consumes\":\"application/octet-stream\",\"error_handler_strategy\":\"stop\",\"kamelets\":{\"adapter\":{\"name\":\"cos-azure-storage-blob-source\",\"prefix\":\"azure\"},\"kafka\":{\"name\":\"cos-kafka-sink\",\"prefix\":\"kafka\"}},\"operators\":[{\"type\":\"camel-connector-operator\",\"version\":\"[1.0.0,2.0.0)\"}],\"produces\":\"application/octet-stream\"}"),
-				"serviceAccount": []byte("{\"client_id\":\"225143db-c506-4f3c-9925-0772a2d825cb\",\"client_secret\":\"YWFr\"}"),
-			},
-		},
+		secret,
 	)
 
 	assert.Nil(t, err)

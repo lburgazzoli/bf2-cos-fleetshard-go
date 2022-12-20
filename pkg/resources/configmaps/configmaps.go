@@ -27,10 +27,7 @@ func ComputeDigest(resource corev1.ConfigMap) (string, error) {
 		}
 	}
 
-	// Add a letter at the beginning and use URL safe encoding
-	digest := "v" + base64.RawURLEncoding.EncodeToString(hash.Sum(nil))
-
-	return digest, nil
+	return base64.StdEncoding.EncodeToString(hash.Sum(nil)), nil
 }
 
 func ExtractStructuredData[T any](resource corev1.ConfigMap, key string, target *T) error {
@@ -43,6 +40,21 @@ func ExtractStructuredData[T any](resource corev1.ConfigMap, key string, target 
 	if err != nil {
 		return errors.Wrap(err, "unable to decode content")
 	}
+
+	return nil
+}
+
+func SetStructuredData(resource *corev1.ConfigMap, key string, val interface{}) error {
+	data, err := json.Marshal(val)
+	if err != nil {
+		return errors.Wrap(err, "unable to marshal content")
+	}
+
+	if resource.Data == nil {
+		resource.Data = make(map[string]string)
+	}
+
+	resource.Data[key] = string(data)
 
 	return nil
 }

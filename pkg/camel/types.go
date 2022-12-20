@@ -1,5 +1,7 @@
 package camel
 
+import "encoding/json"
+
 type ConnectorType string
 
 const (
@@ -32,6 +34,7 @@ type Kamelets struct {
 type ShardMetadata struct {
 	ConnectorImage       string            `json:"connector_image"`
 	ConnectorType        ConnectorType     `json:"connector_type"`
+	ConnectorRevision    int64             `json:"connector_revision"`
 	Annotations          map[string]string `json:"annotations,omitempty"`
 	Operators            []Operator        `json:"operators,omitempty"`
 	Kamelets             Kamelets          `json:"kamelets"`
@@ -40,4 +43,24 @@ type ShardMetadata struct {
 	Produces             string            `json:"produces"`
 	ProducesClass        string            `json:"produces_class"`
 	ErrorHandlerStrategy string            `json:"error_handler_strategy"`
+}
+
+type DataShape struct {
+	Format string `json:"format"`
+}
+
+type DataShapeSpec struct {
+	Consumes *DataShape `json:"consumes,omitempty"`
+	Produces *DataShape `json:"produces,omitempty"`
+}
+
+type ErrorHandlerSpec struct {
+	Stop json.RawMessage `json:"stop,omitempty"`
+	Log  json.RawMessage `json:"log,omitempty"`
+	DLQ  json.RawMessage `json:"dead_letter_queue,omitempty"`
+}
+
+type ConnectorConfiguration struct {
+	DataShape    *DataShapeSpec    `json:"data_shape,omitempty"`
+	ErrorHandler *ErrorHandlerSpec `json:"error_handler,omitempty"`
 }

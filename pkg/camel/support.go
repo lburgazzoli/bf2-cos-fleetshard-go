@@ -1,11 +1,18 @@
 package camel
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"github.com/stoewer/go-strcase"
-	corev1 "k8s.io/api/core/v1"
+	"sort"
 	"strings"
+
+	corev1 "k8s.io/api/core/v1"
+
+	camelv1lapha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
+	"github.com/stoewer/go-strcase"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources"
 )
 
 func extractSecrets(
@@ -91,4 +98,63 @@ func setEndpointProperties(properties map[string]interface{}, config map[string]
 			properties[k] = v
 		}
 	}
+}
+
+func setTrait(target *camelv1lapha1.KameletBinding, key string, vals ...string) error {
+	if len(vals) == 0 {
+		return nil
+	}
+
+	if !strings.HasPrefix("trait.camel.apache.org/", key) {
+		key = "trait.camel.apache.org/" + key
+	}
+
+	if len(vals) == 1 {
+		resources.SetAnnotation(&target.ObjectMeta, key, vals[0])
+	} else {
+		data, err := json.Marshal(vals)
+		if err != nil {
+			return err
+		}
+
+		resources.SetAnnotation(&target.ObjectMeta, key, string(data))
+	}
+
+	return nil
+}
+
+func computeTraitsDigest(resource camelv1lapha1.KameletBinding) (string, error) {
+	hash := sha256.New()
+
+	if _, err := hash.Write([]byte(resource.Namespace)); err != nil {
+		return "", err
+	}
+	if _, err := hash.Write([]byte(resource.Name)); err != nil {
+		return "", err
+	}
+
+	keys := make([]string, 0, len(resource.Annotations))
+
+	for k := range resource.Annotations {
+		if !strings.HasPrefix(k, "trait.camel.apache.org/") {
+			continue
+		}
+
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		v := resource.Annotations[k]
+
+		if _, err := hash.Write([]byte(k)); err != nil {
+			return "", err
+		}
+		if _, err := hash.Write([]byte(v)); err != nil {
+			return "", err
+		}
+	}
+
+	return base64.StdEncoding.EncodeToString(hash.Sum(nil)), nil
 }
