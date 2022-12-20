@@ -74,7 +74,7 @@ func (builder *Builder) PropertiesFrom(properties map[string]interface{}, prefix
 		}
 
 		if strings.HasPrefix(k, prefix+"_") {
-			k = strings.TrimPrefix(k, prefix)
+			k = strings.TrimPrefix(k, prefix+"_")
 			k = strcase.LowerCamelCase(k)
 
 			builder.properties[k] = v
@@ -109,6 +109,7 @@ func NewKameletBuilder(name string) *Builder {
 		ref: corev1.ObjectReference{
 			APIVersion: camel.SchemeGroupVersion.String(),
 			Kind:       "Kamelet",
+			Name:       name,
 		},
 		properties: make(map[string]interface{}),
 	}

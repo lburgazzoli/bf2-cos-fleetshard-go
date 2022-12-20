@@ -13,6 +13,10 @@ func extractSecrets(
 	secret *corev1.Secret) error {
 
 	for k, v := range config {
+		if k == "data_shape" || k == "error_handler" {
+			continue
+		}
+
 		switch t := v.(type) {
 		case map[string]interface{}:
 			kind := t["kind"]
@@ -22,7 +26,12 @@ func extractSecrets(
 				return fmt.Errorf("unsupported kind: %s", kind)
 			}
 
-			decoded, err := base64.StdEncoding.DecodeString(fmt.Sprintf("%v", value))
+			encoded, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("error decoding key %s", k)
+			}
+
+			decoded, err := base64.StdEncoding.DecodeString(encoded)
 			if err != nil {
 				return fmt.Errorf("error decoding secret: %s", k)
 			}
@@ -41,6 +50,10 @@ func extractSecrets(
 func extractConfig(
 	config map[string]interface{},
 	configMap *corev1.ConfigMap) error {
+
+	if configMap.Data == nil {
+		configMap.Data = make(map[string]string)
+	}
 
 	configMap.Data["camel.main.route-controller-supervise-enabled"] = "true"
 	configMap.Data["camel.main.route-controller-unhealthy-on-exhausted"] = "true"

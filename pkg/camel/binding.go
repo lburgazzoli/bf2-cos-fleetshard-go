@@ -1,6 +1,7 @@
 package camel
 
 import (
+	"encoding/base64"
 	camel "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
 	"github.com/pkg/errors"
 	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
@@ -39,13 +40,17 @@ func Reify(
 		return binding, bindingSecret, bindingConfig, errors.Wrap(err, "error decoding config")
 	}
 
+	if binding.Annotations == nil {
+		binding.Annotations = make(map[string]string)
+	}
+
 	binding.Annotations["trait.camel.apache.org/container.image"] = meta.ConnectorImage
 	binding.Annotations["trait.camel.apache.org/kamelets.enabled"] = "false"
 	binding.Annotations["trait.camel.apache.org/jvm.enabled"] = "false"
 	binding.Annotations["trait.camel.apache.org/logging.json"] = "false"
 	binding.Annotations["trait.camel.apache.org/prometheus.enabled"] = "true"
 	binding.Annotations["trait.camel.apache.org/prometheus.pod-monitor"] = "false"
-	binding.Annotations["trait.camel.apache.org /health.enabled"] = "true"
+	binding.Annotations["trait.camel.apache.org/health.enabled"] = "true"
 	binding.Annotations["trait.camel.apache.org/health.readiness-probe-enabled"] = "true"
 	binding.Annotations["trait.camel.apache.org/health.liveness-probe-enabled"] = "true"
 	binding.Annotations["trait.camel.apache.org/deployment.enabled"] = "true"
@@ -64,8 +69,17 @@ func Reify(
 	binding.Annotations["trait.camel.apache.org/health.liveness-period"] = "10"
 	binding.Annotations["trait.camel.apache.org/health.liveness-timeout"] = "1"
 
+	if bindingSecret.StringData == nil {
+		bindingSecret.StringData = make(map[string]string)
+	}
+
+	sad, err := base64.StdEncoding.DecodeString(sa.ClientSecret)
+	if err != nil {
+		return binding, bindingSecret, bindingConfig, errors.Wrap(err, "error decoding service account")
+	}
+
 	bindingSecret.StringData[ServiceAccountClientID] = sa.ClientID
-	bindingSecret.StringData[ServiceAccountClientSecret] = sa.ClientSecret
+	bindingSecret.StringData[ServiceAccountClientSecret] = string(sad)
 
 	if err := extractSecrets(config, &bindingSecret); err != nil {
 		return binding, bindingSecret, bindingConfig, err

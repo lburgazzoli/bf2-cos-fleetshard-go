@@ -39,9 +39,8 @@ func ExtractStructuredData[T any](resource corev1.Secret, key string, target *T)
 		return nil
 	}
 
-	err := json.Unmarshal(data, target)
-	if err != nil {
-		return errors.Wrap(err, "unable to decode content")
+	if err := json.Unmarshal(data, target); err != nil {
+		return errors.Wrap(err, "unable to extract content")
 	}
 
 	return nil
