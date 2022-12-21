@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/json"
+	"sort"
 )
 
 func ComputeDigest(resource corev1.ConfigMap) (string, error) {
@@ -18,11 +19,19 @@ func ComputeDigest(resource corev1.ConfigMap) (string, error) {
 		return "", err
 	}
 
-	for k, v := range resource.Data {
+	keys := make([]string, 0, len(resource.Data))
+
+	for k := range resource.Data {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	for _, k := range keys {
 		if _, err := hash.Write([]byte(k)); err != nil {
 			return "", err
 		}
-		if _, err := hash.Write([]byte(v)); err != nil {
+		if _, err := hash.Write([]byte(resource.Data[k])); err != nil {
 			return "", err
 		}
 	}
