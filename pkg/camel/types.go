@@ -8,6 +8,7 @@ import (
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/meta"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -141,14 +142,26 @@ type ReconciliationContext struct {
 }
 
 func (rc *ReconciliationContext) PatchDependant(source client.Object, target client.Object) error {
+	if target.GetAnnotations() == nil {
+		target.SetAnnotations(make(map[string]string))
+	}
+
 	target.GetAnnotations()[meta.MetaConnectorRevision] = fmt.Sprintf("%d", rc.Connector.Spec.Deployment.ConnectorResourceVersion)
 	target.GetAnnotations()[meta.MetaDeploymentRevision] = fmt.Sprintf("%d", rc.Connector.Spec.Deployment.DeploymentResourceVersion)
 
-	return controller.Patch(rc.C, rc.Client, source, target)
+	return controller.Apply(rc.C, rc.Client, source, target)
 }
 
 func (rc *ReconciliationContext) GetDependant(obj client.Object, opts ...client.GetOption) error {
-	return rc.Client.Get(rc.C, rc.NamespacedName, obj, opts...)
+	err := rc.Client.Get(rc.C, rc.NamespacedName, obj, opts...)
+	if errors.IsNotFound(err) {
+		obj.SetName(rc.NamespacedName.Name)
+		obj.SetNamespace(rc.NamespacedName.Namespace)
+
+		return nil
+	}
+
+	return err
 }
 
 func (rc *ReconciliationContext) DeleteDependant(obj client.Object, opts ...client.DeleteOption) error {

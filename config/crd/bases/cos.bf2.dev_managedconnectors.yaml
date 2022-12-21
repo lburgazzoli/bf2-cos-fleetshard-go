@@ -192,55 +192,12 @@ spec:
                   - type
                   type: object
                 type: array
-              deployment:
-                description: DeploymentSpec ---
-                properties:
-                  connectorResourceVersion:
-                    format: int64
-                    type: integer
-                  connectorTypeId:
-                    type: string
-                  deploymentResourceVersion:
-                    format: int64
-                    type: integer
-                  desiredState:
-                    type: string
-                  kafka:
-                    description: KafkaSpec ---
-                    properties:
-                      id:
-                        type: string
-                      url:
-                        type: string
-                    required:
-                    - id
-                    - url
-                    type: object
-                  serviceRegistry:
-                    description: ServiceResgistrySpec ---
-                    properties:
-                      id:
-                        type: string
-                      url:
-                        type: string
-                    required:
-                    - id
-                    - url
-                    type: object
-                required:
-                - connectorResourceVersion
-                - connectorTypeId
-                - deploymentResourceVersion
-                - desiredState
-                - kafka
-                type: object
               observedGeneration:
                 format: int64
                 type: integer
               phase:
                 type: string
             required:
-            - deployment
             - phase
             type: object
         type: object

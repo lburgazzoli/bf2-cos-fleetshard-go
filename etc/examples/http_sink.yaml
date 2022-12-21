@@ -11,7 +11,7 @@ stringData:
   meta: '{"annotations":{"trait.camel.apache.org/container.request-cpu":"0.20","trait.camel.apache.org/container.request-memory":"128M","trait.camel.apache.org/deployment.progress-deadline-seconds":"30"},"connector_image":"quay.io/acme/http:1","connector_revision":72,"connector_type":"sink","consumes":"application/octet-stream","error_handler_strategy":"stop","kamelets":{"adapter":{"name":"cos-http-sink","prefix":"http"},"kafka":{"name":"cos-kafka-source","prefix":"kafka"}},"operators":[{"type":"camel-connector-operator","version":"[1.0.0,2.0.0)"}],"produces":"application/octet-stream"}'
   serviceAccount: '{"client_id":"97227b64-db1b-400a-a507-376710e7c459","client_secret":"Zm9v"}'
 ---
-apiVersion: cos.bf2.org/v1alpha1
+apiVersion: cos.bf2.dev/v2
 kind: ManagedConnector
 metadata:
   labels:

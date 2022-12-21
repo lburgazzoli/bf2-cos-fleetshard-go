@@ -87,7 +87,8 @@ func (r *ManagedConnectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
 func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	l := log.FromContext(ctx)
+	l.Info("Reconciling", "namespace", req.Namespace, "name", req.Name)
 
 	var connector cos.ManagedConnector
 	var secret corev1.Secret
@@ -132,7 +133,14 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Update connector
 	//
 
+	// TODO: must be properly computed or removed
+	rc.Connector.Status.Phase = "Unknown"
+
 	if err := controller.PatchStatus(ctx, r.Client, &connector, rc.Connector); err != nil {
+		if errors.IsConflict(err) {
+			return ctrl.Result{RequeueAfter: 500 * time.Millisecond}, err
+		}
+
 		return ctrl.Result{}, err
 	}
 
@@ -146,19 +154,13 @@ func reconcileConnector(rc camel2.ReconciliationContext) error {
 	var bindingConfig corev1.ConfigMap
 
 	if err := rc.GetDependant(&binding); err != nil {
-		if !errors.IsNotFound(err) {
-			return errors2.Wrap(err, "failure loading dependant KameletBinding")
-		}
+		return errors2.Wrap(err, "failure loading dependant KameletBinding")
 	}
 	if err := rc.GetDependant(&bindingSecret); err != nil {
-		if !errors.IsNotFound(err) {
-			return errors2.Wrap(err, "failure loading dependant KameletBinding secret")
-		}
+		return errors2.Wrap(err, "failure loading dependant KameletBinding secret")
 	}
 	if err := rc.GetDependant(&bindingConfig); err != nil {
-		if !errors.IsNotFound(err) {
-			return errors2.Wrap(err, "failure loading dependant KameletBinding config")
-		}
+		return errors2.Wrap(err, "failure loading dependant KameletBinding config")
 	}
 
 	if err := extractConditions(&rc.Connector.Status.Conditions, binding); err != nil {
@@ -179,21 +181,21 @@ func reconcileConnector(rc camel2.ReconciliationContext) error {
 			return err
 		}
 
-		if err := controllerutil.SetOwnerReference(&binding, &bindingSecret, rc.M.GetScheme()); err != nil {
+		if err := controllerutil.SetControllerReference(rc.Connector, &bs, rc.M.GetScheme()); err != nil {
 			return errors2.Wrap(err, "unable to set binding secret controller reference")
 		}
 		if err := rc.PatchDependant(&bindingSecret, &bs); err != nil {
 			return errors2.Wrap(err, "unable to patch binding secret")
 		}
 
-		if err := controllerutil.SetOwnerReference(&binding, &bindingConfig, rc.M.GetScheme()); err != nil {
+		if err := controllerutil.SetControllerReference(rc.Connector, &bc, rc.M.GetScheme()); err != nil {
 			return errors2.Wrap(err, "unable to set binding config controller reference")
 		}
 		if err := rc.PatchDependant(&bindingConfig, &bc); err != nil {
 			return errors2.Wrap(err, "unable to patch binding config")
 		}
 
-		if err := controllerutil.SetControllerReference(rc.Connector, &binding, rc.M.GetScheme()); err != nil {
+		if err := controllerutil.SetControllerReference(rc.Connector, &b, rc.M.GetScheme()); err != nil {
 			return errors2.Wrap(err, "unable to set binding config controller reference")
 		}
 		if err := rc.PatchDependant(&binding, &b); err != nil {
@@ -206,7 +208,6 @@ func reconcileConnector(rc camel2.ReconciliationContext) error {
 			conditions.ConditionReasonProvisioned,
 			conditions.ConditionMessageProvisioned)
 
-		rc.Connector.Status.Deployment = rc.Connector.Spec.Deployment
 		rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
 	case cos.DesiredStateStopped:
 		setReadyCondition(
@@ -215,19 +216,26 @@ func reconcileConnector(rc camel2.ReconciliationContext) error {
 			conditions.ConditionReasonStopping,
 			conditions.ConditionMessageStopping)
 
-		if err := rc.DeleteDependant(&binding); err != nil {
-			if errors.IsNotFound(err) {
-				setReadyCondition(
-					rc.Connector,
-					metav1.ConditionFalse,
-					conditions.ConditionReasonStopped,
-					conditions.ConditionMessageStopped)
+		deleted := 0
 
-				rc.Connector.Status.Deployment = rc.Connector.Spec.Deployment
-				rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
-			} else {
+		for _, r := range []client.Object{&binding, &bindingSecret, &bindingConfig} {
+			if err := rc.DeleteDependant(r); err != nil {
+				if !errors.IsNotFound(err) {
+					deleted++
+				}
+
 				return err
 			}
+		}
+
+		if deleted == 3 {
+			setReadyCondition(
+				rc.Connector,
+				metav1.ConditionFalse,
+				conditions.ConditionReasonStopped,
+				conditions.ConditionMessageStopped)
+
+			rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
 		}
 	case cos.DesiredStateDeleted:
 		setReadyCondition(
@@ -236,20 +244,26 @@ func reconcileConnector(rc camel2.ReconciliationContext) error {
 			conditions.ConditionReasonDeleting,
 			conditions.ConditionMessageDeleting)
 
-		if err := rc.DeleteDependant(&binding); err != nil {
+		deleted := 0
 
-			if errors.IsNotFound(err) {
-				setReadyCondition(
-					rc.Connector,
-					metav1.ConditionFalse,
-					conditions.ConditionReasonDeleted,
-					conditions.ConditionMessageDeleted)
+		for _, r := range []client.Object{&binding, &bindingSecret, &bindingConfig} {
+			if err := rc.DeleteDependant(r); err != nil {
+				if !errors.IsNotFound(err) {
+					deleted++
+				}
 
-				rc.Connector.Status.Deployment = rc.Connector.Spec.Deployment
-				rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
-			} else {
 				return err
 			}
+		}
+
+		if deleted == 3 {
+			setReadyCondition(
+				rc.Connector,
+				metav1.ConditionFalse,
+				conditions.ConditionReasonDeleted,
+				conditions.ConditionMessageDeleted)
+
+			rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
 		}
 	}
 

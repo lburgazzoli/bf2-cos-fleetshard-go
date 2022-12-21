@@ -2,23 +2,33 @@ package controller
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/patch"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func Patch(
+func Apply(
 	ctx context.Context,
 	c client.Client,
 	source client.Object,
 	target client.Object,
 ) error {
+	err := c.Create(ctx, target)
+	if err == nil {
+		return nil
+	}
+	if !k8serrors.IsAlreadyExists(err) {
+		return errors.Wrapf(err, "error during create resource: %s/%s", target.GetNamespace(), target.GetName())
+	}
+
 	// TODO: server side apply
 	data, err := patch.MergePatch(source, target)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	if len(data) == 0 {
@@ -37,7 +47,7 @@ func PatchStatus(
 	// TODO: server side apply
 	data, err := patch.MergePatch(source, target)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	if len(data) == 0 {
