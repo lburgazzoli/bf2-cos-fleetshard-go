@@ -65,8 +65,8 @@ func readyCondition(connector cos.ManagedConnector) metav1.Condition {
 	}
 
 	if connector.Generation != connector.Status.ObservedGeneration {
-		ready.Reason = "Provisioning"
-		ready.Message = "Provisioning"
+		ready.Reason = conditions.ConditionMessageProvisioning
+		ready.Message = conditions.ConditionReasonProvisioning
 	}
 
 	return ready
