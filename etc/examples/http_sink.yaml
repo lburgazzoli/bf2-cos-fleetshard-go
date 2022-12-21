@@ -1,0 +1,32 @@
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  labels:
+    cos.bf2.org/uow: '9bsv0s3l50qg02oqvlqg'
+  name: 'mctr-http-sink-deploy'
+stringData:
+  connector: '{"http_method":"POST","http_url":"https://httpbin.org/post","kafka_topic":"cos"}'
+  meta: '{"annotations":{"trait.camel.apache.org/container.request-cpu":"0.20","trait.camel.apache.org/container.request-memory":"128M","trait.camel.apache.org/deployment.progress-deadline-seconds":"30"},"connector_image":"quay.io/acme/http:1","connector_revision":72,"connector_type":"sink","consumes":"application/octet-stream","error_handler_strategy":"stop","kamelets":{"adapter":{"name":"cos-http-sink","prefix":"http"},"kafka":{"name":"cos-kafka-source","prefix":"kafka"}},"operators":[{"type":"camel-connector-operator","version":"[1.0.0,2.0.0)"}],"produces":"application/octet-stream"}'
+  serviceAccount: '{"client_id":"97227b64-db1b-400a-a507-376710e7c459","client_secret":"Zm9v"}'
+---
+apiVersion: cos.bf2.org/v1alpha1
+kind: ManagedConnector
+metadata:
+  labels:
+    cos.bf2.org/uow: '9bsv0s3l50qg02oqvlqg'
+  name: 'mctr-http-sink'
+spec:
+  clusterId: '9bsv0s50ce1g02v21usg'
+  connectorId: '9bsv0s5m28kg02ogi9h0'
+  deploymentId: '9bsv0s36ii1g02nqtsm0'
+  operatorId: '9bsv0s6s1q3g02u1f1c0'
+  deployment:
+    connectorResourceVersion: 53090
+    connectorTypeId: 'http_sink_0.1'
+    deploymentResourceVersion: 37615
+    desiredState: 'ready'
+    kafka:
+      id: 'foo'
+      url: 'foo.kafka.acme.com:443'

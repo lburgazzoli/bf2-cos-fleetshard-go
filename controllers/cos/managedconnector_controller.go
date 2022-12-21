@@ -89,18 +89,13 @@ func (r *ManagedConnectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
-	named := types.NamespacedName{
-		Name:      req.Name,
-		Namespace: req.Namespace,
-	}
-
 	var connector cos.ManagedConnector
 	var secret corev1.Secret
 
-	if err := r.Get(ctx, named, &connector); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, &connector); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	if err := r.Get(ctx, named, &secret); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: req.Name + "-deploy", Namespace: req.Namespace}, &secret); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -118,12 +113,15 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	//
 
 	rc := camel2.ReconciliationContext{
-		C:              ctx,
-		M:              r.mgr,
-		Client:         r.Client,
-		NamespacedName: named,
-		Connector:      connector.DeepCopy(),
-		Secret:         secret.DeepCopy(),
+		C:      ctx,
+		M:      r.mgr,
+		Client: r.Client,
+		NamespacedName: types.NamespacedName{
+			Name:      req.Name,
+			Namespace: req.Namespace,
+		},
+		Connector: connector.DeepCopy(),
+		Secret:    secret.DeepCopy(),
 	}
 
 	if err := reconcileConnector(rc); err != nil {
