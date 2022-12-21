@@ -2,13 +2,13 @@ package camel
 
 import (
 	"encoding/base64"
-	"fmt"
 	camelv1 "github.com/apache/camel-k/pkg/apis/camel/v1"
 	"github.com/apache/camel-k/pkg/apis/camel/v1/trait"
 	camelv1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
 	"github.com/pkg/errors"
 	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/camel/endpoints"
+	meta2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/meta"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources/configmaps"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources/secrets"
 	corev1 "k8s.io/api/core/v1"
@@ -50,8 +50,7 @@ func Reify(
 
 	var sa ServiceAccount
 	var meta ShardMetadata
-	var config map[string]interface{}
-	var cc ConnectorConfiguration
+	var config ConnectorConfiguration
 
 	if err := secrets.ExtractStructuredData(secret, SecretEntryServiceAccount, &sa); err != nil {
 		return binding, bindingSecret, bindingConfig, errors.Wrap(err, "error decoding service account")
@@ -62,25 +61,19 @@ func Reify(
 	if err := secrets.ExtractStructuredData(secret, SecretEntryConnector, &config); err != nil {
 		return binding, bindingSecret, bindingConfig, errors.Wrap(err, "error decoding config")
 	}
-	if err := secrets.ExtractStructuredData(secret, SecretEntryConnector, &cc); err != nil {
-		return binding, bindingSecret, bindingConfig, errors.Wrap(err, "error decoding config")
-	}
 
 	// TODO: improve
-	if cc.DataShape == nil {
-		cc.DataShape = &DataShapeSpec{}
+	if config.DataShape.Consumes == nil {
+		config.DataShape.Consumes = &DataShape{}
 	}
-	if cc.DataShape.Consumes == nil {
-		cc.DataShape.Consumes = &DataShape{}
+	if config.DataShape.Consumes.Format == "" {
+		config.DataShape.Consumes.Format = meta.Consumes
 	}
-	if cc.DataShape.Consumes.Format == "" {
-		cc.DataShape.Consumes.Format = meta.Consumes
+	if config.DataShape.Produces == nil {
+		config.DataShape.Produces = &DataShape{}
 	}
-	if cc.DataShape.Produces == nil {
-		cc.DataShape.Produces = &DataShape{}
-	}
-	if cc.DataShape.Produces.Format == "" {
-		cc.DataShape.Produces.Format = meta.Produces
+	if config.DataShape.Produces.Format == "" {
+		config.DataShape.Produces.Format = meta.Produces
 	}
 
 	if binding.Annotations == nil {
@@ -106,10 +99,10 @@ func Reify(
 
 	_ = setTrait(&binding,
 		"owner.target-labels",
-		"cos.bf2.org/operator.type",
-		"cos.bf2.org/deployment.id",
-		"cos.bf2.org/connector.id",
-		"cos.bf2.org/connector.type.id")
+		meta2.MetaOperatorType,
+		meta2.MetaDeploymentID,
+		meta2.MetaConnectorID,
+		meta2.MetaConnectorTypeID)
 
 	_ = setTrait(&binding,
 		"owner.target-annotations",
@@ -137,10 +130,10 @@ func Reify(
 	bindingSecret.StringData[ServiceAccountClientID] = sa.ClientID
 	bindingSecret.StringData[ServiceAccountClientSecret] = string(sad)
 
-	if err := extractSecrets(config, &bindingSecret); err != nil {
+	if err := extractSecrets(config.Properties, &bindingSecret); err != nil {
 		return binding, bindingSecret, bindingConfig, err
 	}
-	if err := extractConfig(config, &bindingConfig); err != nil {
+	if err := extractConfig(config.Properties, &bindingConfig); err != nil {
 		return binding, bindingSecret, bindingConfig, err
 	}
 
@@ -148,7 +141,7 @@ func Reify(
 	case ConnectorTypeSource:
 		src, err := endpoints.NewKameletBuilder(meta.Kamelets.Adapter.Name).
 			Property("id", connector.Spec.ConnectorID+"-source").
-			PropertiesFrom(config, meta.Kamelets.Adapter.Prefix).
+			PropertiesFrom(config.Properties, meta.Kamelets.Adapter.Prefix).
 			Build()
 
 		if err != nil {
@@ -161,7 +154,7 @@ func Reify(
 			Property("valueSerializer", "org.bf2.cos.connector.camel.serdes.bytes.ByteArraySerializer").
 			PropertyPlaceholder("user", ServiceAccountClientID).
 			PropertyPlaceholder("password", ServiceAccountClientSecret).
-			PropertiesFrom(config, meta.Kamelets.Kafka.Prefix).
+			PropertiesFrom(config.Properties, meta.Kamelets.Kafka.Prefix).
 			Build()
 
 		if err != nil {
@@ -181,7 +174,7 @@ func Reify(
 			Property("valueDeserializer", "org.bf2.cos.connector.camel.serdes.bytes.ByteArrayDeserializer").
 			PropertyPlaceholder("user", ServiceAccountClientID).
 			PropertyPlaceholder("password", ServiceAccountClientSecret).
-			PropertiesFrom(config, meta.Kamelets.Kafka.Prefix).
+			PropertiesFrom(config.Properties, meta.Kamelets.Kafka.Prefix).
 			Build()
 
 		if err != nil {
@@ -190,7 +183,7 @@ func Reify(
 
 		sink, err := endpoints.NewKameletBuilder(meta.Kamelets.Adapter.Name).
 			Property("id", connector.Spec.ConnectorID+"-sink").
-			PropertiesFrom(config, meta.Kamelets.Adapter.Prefix).
+			PropertiesFrom(config.Properties, meta.Kamelets.Adapter.Prefix).
 			Build()
 
 		if err != nil {
@@ -203,7 +196,7 @@ func Reify(
 		break
 	}
 
-	if err := configureSteps(&binding, cc); err != nil {
+	if err := configureSteps(&binding, config); err != nil {
 		return binding, bindingSecret, bindingConfig, errors.Wrap(err, "error configuring steps")
 	}
 
@@ -223,6 +216,7 @@ func Reify(
 	}
 
 	binding.Spec.Integration = &camelv1.IntegrationSpec{
+		Profile: camelv1.TraitProfileOpenShift,
 		Traits: camelv1.Traits{
 			Environment: &trait.EnvironmentTrait{
 				Vars: []string{
@@ -241,70 +235,4 @@ func Reify(
 	sort.Strings(binding.Spec.Integration.Traits.Environment.Vars)
 
 	return binding, bindingSecret, bindingConfig, nil
-}
-
-func configureSteps(binding *camelv1alpha1.KameletBinding, cc ConnectorConfiguration) error {
-
-	switch cc.DataShape.Consumes.Format {
-	case "":
-		break
-	case "application/json":
-		step, err := endpoints.NewKameletBuilder("cos-decoder-json-action").Build()
-		if err != nil {
-			return errors.Wrap(err, "error creating sink")
-		}
-
-		binding.Spec.Steps = append(binding.Spec.Steps, step)
-	case "avro/binary":
-		step, err := endpoints.NewKameletBuilder("cos-decoder-avro-action").Build()
-		if err != nil {
-			return errors.Wrap(err, "error creating sink")
-		}
-
-		binding.Spec.Steps = append(binding.Spec.Steps, step)
-	case "text/plain":
-	case "application/octet-stream":
-		break
-	default:
-		return fmt.Errorf("unsupported format %s", cc.DataShape.Consumes.Format)
-
-	}
-
-	switch cc.DataShape.Produces.Format {
-	case "":
-		break
-	case "application/json":
-		step, err := endpoints.NewKameletBuilder("cos-encoder-json-action").Build()
-		if err != nil {
-			return errors.Wrap(err, "error creating sink")
-		}
-
-		binding.Spec.Steps = append(binding.Spec.Steps, step)
-	case "avro/binary":
-		step, err := endpoints.NewKameletBuilder("cos-encoder-avro-action").Build()
-		if err != nil {
-			return errors.Wrap(err, "error creating sink")
-		}
-
-		binding.Spec.Steps = append(binding.Spec.Steps, step)
-	case "text/plain":
-		step, err := endpoints.NewKameletBuilder("cos-encoder-string-action").Build()
-		if err != nil {
-			return errors.Wrap(err, "error creating sink")
-		}
-
-		binding.Spec.Steps = append(binding.Spec.Steps, step)
-	case "application/octet-stream":
-		step, err := endpoints.NewKameletBuilder("cos-encoder-bytearray-action").Build()
-		if err != nil {
-			return errors.Wrap(err, "error creating sink")
-		}
-
-		binding.Spec.Steps = append(binding.Spec.Steps, step)
-	default:
-		return fmt.Errorf("unsupported format %s", cc.DataShape.Produces.Format)
-
-	}
-
-	return nil
 }

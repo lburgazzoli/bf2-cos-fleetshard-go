@@ -105,8 +105,8 @@ func setTrait(target *camelv1lapha1.KameletBinding, key string, vals ...string) 
 		return nil
 	}
 
-	if !strings.HasPrefix("trait.camel.apache.org/", key) {
-		key = "trait.camel.apache.org/" + key
+	if !strings.HasPrefix(TraitGroup+"/", key) {
+		key = TraitGroup + "/" + key
 	}
 
 	if len(vals) == 1 {
@@ -136,7 +136,7 @@ func computeTraitsDigest(resource camelv1lapha1.KameletBinding) (string, error) 
 	keys := make([]string, 0, len(resource.Annotations))
 
 	for k := range resource.Annotations {
-		if !strings.HasPrefix(k, "trait.camel.apache.org/") {
+		if !strings.HasPrefix(k, TraitGroup+"/") {
 			continue
 		}
 

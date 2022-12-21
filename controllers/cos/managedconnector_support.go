@@ -20,6 +20,8 @@ import (
 	camel "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
 	"github.com/pkg/errors"
 	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/conditions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strconv"
@@ -55,10 +57,10 @@ func extractConditions(conditions *[]metav1.Condition, binding camel.KameletBind
 
 func readyCondition(connector cos.ManagedConnector) metav1.Condition {
 	ready := metav1.Condition{
-		Type:               "Ready",
+		Type:               conditions.ConditionTypeReady,
 		Status:             metav1.ConditionFalse,
-		Reason:             "Unknown",
-		Message:            "Unknown",
+		Reason:             conditions.ConditionReasonUnknown,
+		Message:            conditions.ConditionMessageUnknown,
 		ObservedGeneration: connector.Spec.Deployment.DeploymentResourceVersion,
 	}
 
@@ -68,4 +70,12 @@ func readyCondition(connector cos.ManagedConnector) metav1.Condition {
 	}
 
 	return ready
+}
+
+func setReadyCondition(connector *cos.ManagedConnector, status metav1.ConditionStatus, reason string, message string) {
+	controller.UpdateStatusCondition(&connector.Status.Conditions, conditions.ConditionTypeReady, func(condition *metav1.Condition) {
+		condition.Status = status
+		condition.Reason = reason
+		condition.Message = message
+	})
 }

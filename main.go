@@ -18,6 +18,8 @@ package main
 
 import (
 	"flag"
+	camelv1 "github.com/apache/camel-k/pkg/apis/camel/v1"
+	camelv1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
 	"k8s.io/klog/v2"
 	"os"
 
@@ -46,6 +48,8 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(cosv2.AddToScheme(scheme))
+	utilruntime.Must(camelv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(camelv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
