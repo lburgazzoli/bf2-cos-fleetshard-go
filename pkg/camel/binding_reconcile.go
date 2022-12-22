@@ -1,7 +1,8 @@
 package camel
 
 import (
-	camelv1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
+	kamelv1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
+
 	"github.com/pkg/errors"
 	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
@@ -10,13 +11,14 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func Reconcile(rc controller.ReconciliationContext) error {
 
-	var binding camelv1alpha1.KameletBinding
+	var binding kamelv1alpha1.KameletBinding
 	var bindingSecret corev1.Secret
 	var bindingConfig corev1.ConfigMap
 
@@ -30,11 +32,11 @@ func Reconcile(rc controller.ReconciliationContext) error {
 		return errors.Wrap(err, "failure loading dependant KameletBinding config")
 	}
 
-	if err := ExtractConditions(&rc.Connector.Status.Conditions, binding); err != nil {
+	if err := extractConditions(&rc.Connector.Status.Conditions, binding); err != nil {
 		return errors.Wrap(err, "unable to compute binding conditions")
 	}
 
-	meta.SetStatusCondition(&rc.Connector.Status.Conditions, ReadyCondition(*rc.Connector))
+	meta.SetStatusCondition(&rc.Connector.Status.Conditions, conditions.Ready(*rc.Connector))
 
 	//
 	// Update binding & secret
@@ -69,7 +71,7 @@ func Reconcile(rc controller.ReconciliationContext) error {
 			return errors.Wrap(err, "unable to patch binding")
 		}
 
-		SetReadyCondition(
+		conditions.SetReady(
 			rc.Connector,
 			metav1.ConditionTrue,
 			conditions.ConditionReasonProvisioned,
@@ -77,7 +79,7 @@ func Reconcile(rc controller.ReconciliationContext) error {
 
 		rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
 	case cos.DesiredStateStopped:
-		SetReadyCondition(
+		conditions.SetReady(
 			rc.Connector,
 			metav1.ConditionFalse,
 			conditions.ConditionReasonStopping,
@@ -96,7 +98,7 @@ func Reconcile(rc controller.ReconciliationContext) error {
 		}
 
 		if deleted == 3 {
-			SetReadyCondition(
+			conditions.SetReady(
 				rc.Connector,
 				metav1.ConditionFalse,
 				conditions.ConditionReasonStopped,
@@ -105,7 +107,7 @@ func Reconcile(rc controller.ReconciliationContext) error {
 			rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
 		}
 	case cos.DesiredStateDeleted:
-		SetReadyCondition(
+		conditions.SetReady(
 			rc.Connector,
 			metav1.ConditionFalse,
 			conditions.ConditionReasonDeleting,
@@ -124,7 +126,7 @@ func Reconcile(rc controller.ReconciliationContext) error {
 		}
 
 		if deleted == 3 {
-			SetReadyCondition(
+			conditions.SetReady(
 				rc.Connector,
 				metav1.ConditionFalse,
 				conditions.ConditionReasonDeleted,

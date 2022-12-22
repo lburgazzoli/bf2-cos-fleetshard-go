@@ -3,13 +3,13 @@ package camel
 import (
 	"fmt"
 
-	camelv1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
+	kamelv1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
 
 	"github.com/pkg/errors"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/camel/endpoints"
 )
 
-func configureSteps(binding *camelv1alpha1.KameletBinding, cc ConnectorConfiguration) error {
+func configureSteps(binding *kamelv1alpha1.KameletBinding, cc ConnectorConfiguration) error {
 
 	//
 	// Decoder
@@ -43,9 +43,9 @@ func configureSteps(binding *camelv1alpha1.KameletBinding, cc ConnectorConfigura
 	return nil
 }
 
-func configureDecoder(cc ConnectorConfiguration) (*camelv1alpha1.Endpoint, error) {
+func configureDecoder(cc ConnectorConfiguration) (*kamelv1alpha1.Endpoint, error) {
 	var err error
-	var step camelv1alpha1.Endpoint
+	var step kamelv1alpha1.Endpoint
 
 	switch cc.DataShape.Consumes.Format {
 	case "":
@@ -72,9 +72,9 @@ func configureDecoder(cc ConnectorConfiguration) (*camelv1alpha1.Endpoint, error
 	return nil, nil
 }
 
-func configureEncoder(cc ConnectorConfiguration) (*camelv1alpha1.Endpoint, error) {
+func configureEncoder(cc ConnectorConfiguration) (*kamelv1alpha1.Endpoint, error) {
 	var err error
-	var step camelv1alpha1.Endpoint
+	var step kamelv1alpha1.Endpoint
 
 	switch cc.DataShape.Produces.Format {
 	case "":

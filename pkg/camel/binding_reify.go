@@ -2,18 +2,21 @@ package camel
 
 import (
 	"encoding/base64"
-	camelv1 "github.com/apache/camel-k/pkg/apis/camel/v1"
+	"sort"
+
+	kamelv1 "github.com/apache/camel-k/pkg/apis/camel/v1"
 	"github.com/apache/camel-k/pkg/apis/camel/v1/trait"
-	camelv1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
+	kamelv1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
+
 	"github.com/pkg/errors"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/camel/endpoints"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
-	meta2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/meta"
+	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/meta"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources/configmaps"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources/secrets"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sort"
 )
 
 const (
@@ -24,9 +27,9 @@ const (
 	ServiceAccountClientSecret string = "sa_client_secret"
 )
 
-func reify(rc *controller.ReconciliationContext) (camelv1alpha1.KameletBinding, corev1.Secret, corev1.ConfigMap, error) {
+func reify(rc *controller.ReconciliationContext) (kamelv1alpha1.KameletBinding, corev1.Secret, corev1.ConfigMap, error) {
 
-	binding := camelv1alpha1.KameletBinding{
+	binding := kamelv1alpha1.KameletBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rc.Connector.Name,
 			Namespace: rc.Connector.Namespace,
@@ -96,10 +99,10 @@ func reify(rc *controller.ReconciliationContext) (camelv1alpha1.KameletBinding, 
 
 	_ = setTrait(&binding,
 		"owner.target-labels",
-		meta2.MetaOperatorType,
-		meta2.MetaDeploymentID,
-		meta2.MetaConnectorID,
-		meta2.MetaConnectorTypeID)
+		cosmeta.MetaOperatorType,
+		cosmeta.MetaDeploymentID,
+		cosmeta.MetaConnectorID,
+		cosmeta.MetaConnectorTypeID)
 
 	_ = setTrait(&binding,
 		"owner.target-annotations",
@@ -212,9 +215,9 @@ func reify(rc *controller.ReconciliationContext) (camelv1alpha1.KameletBinding, 
 		return binding, bindingSecret, bindingConfig, err
 	}
 
-	binding.Spec.Integration = &camelv1.IntegrationSpec{
-		Profile: camelv1.TraitProfileOpenShift,
-		Traits: camelv1.Traits{
+	binding.Spec.Integration = &kamelv1.IntegrationSpec{
+		Profile: kamelv1.TraitProfileOpenShift,
+		Traits: kamelv1.Traits{
 			Environment: &trait.EnvironmentTrait{
 				Vars: []string{
 					"CONNECTOR_ID=" + rc.Connector.Spec.ConnectorID,

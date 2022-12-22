@@ -6,10 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
-	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/conditions"
-	meta2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/meta"
+	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/meta"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sort"
@@ -18,7 +15,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	camelv1lapha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
+	kamelv1lapha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
 	"github.com/stoewer/go-strcase"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources"
 )
@@ -108,7 +105,7 @@ func setEndpointProperties(properties map[string]interface{}, config map[string]
 	}
 }
 
-func setTrait(target *camelv1lapha1.KameletBinding, key string, vals ...string) error {
+func setTrait(target *kamelv1lapha1.KameletBinding, key string, vals ...string) error {
 	if len(vals) == 0 {
 		return nil
 	}
@@ -131,7 +128,7 @@ func setTrait(target *camelv1lapha1.KameletBinding, key string, vals ...string) 
 	return nil
 }
 
-func computeTraitsDigest(resource camelv1lapha1.KameletBinding) (string, error) {
+func computeTraitsDigest(resource kamelv1lapha1.KameletBinding) (string, error) {
 	hash := sha256.New()
 
 	if _, err := hash.Write([]byte(resource.Namespace)); err != nil {
@@ -167,12 +164,12 @@ func computeTraitsDigest(resource camelv1lapha1.KameletBinding) (string, error) 
 	return base64.StdEncoding.EncodeToString(hash.Sum(nil)), nil
 }
 
-func ExtractConditions(conditions *[]metav1.Condition, binding camelv1lapha1.KameletBinding) error {
+func extractConditions(conditions *[]metav1.Condition, binding kamelv1lapha1.KameletBinding) error {
 
 	var gen int64
 	var err error
 
-	rev := binding.Annotations[meta2.MetaDeploymentRevision]
+	rev := binding.Annotations[cosmeta.MetaDeploymentRevision]
 	if rev != "" {
 		gen, err = strconv.ParseInt(rev, 10, 64)
 		if err != nil {
@@ -211,29 +208,4 @@ func ExtractConditions(conditions *[]metav1.Condition, binding camelv1lapha1.Kam
 	}
 
 	return nil
-}
-
-func ReadyCondition(connector cos.ManagedConnector) metav1.Condition {
-	ready := metav1.Condition{
-		Type:               conditions.ConditionTypeReady,
-		Status:             metav1.ConditionFalse,
-		Reason:             conditions.ConditionReasonUnknown,
-		Message:            conditions.ConditionMessageUnknown,
-		ObservedGeneration: connector.Spec.Deployment.DeploymentResourceVersion,
-	}
-
-	if connector.Generation != connector.Status.ObservedGeneration {
-		ready.Reason = conditions.ConditionMessageProvisioning
-		ready.Message = conditions.ConditionReasonProvisioning
-	}
-
-	return ready
-}
-
-func SetReadyCondition(connector *cos.ManagedConnector, status metav1.ConditionStatus, reason string, message string) {
-	controller.UpdateStatusCondition(&connector.Status.Conditions, conditions.ConditionTypeReady, func(condition *metav1.Condition) {
-		condition.Status = status
-		condition.Reason = reason
-		condition.Message = message
-	})
 }

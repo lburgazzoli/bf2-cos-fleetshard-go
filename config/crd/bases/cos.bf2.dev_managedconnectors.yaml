@@ -98,7 +98,7 @@ spec:
                     - url
                     type: object
                   serviceRegistry:
-                    description: ServiceResgistrySpec ---
+                    description: ServiceRegistrySpec ---
                     properties:
                       id:
                         type: string

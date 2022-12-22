@@ -41,8 +41,8 @@ type KafkaSpec struct {
 	URL string `json:"url"`
 }
 
-// ServiceResgistrySpec ---
-type ServiceResgistrySpec struct {
+// ServiceRegistrySpec ---
+type ServiceRegistrySpec struct {
 	ID string `json:"id"`
 
 	// +required
@@ -72,7 +72,7 @@ type DeploymentSpec struct {
 	// +kubebuilder:validation:Required
 	Kafka KafkaSpec `json:"kafka"`
 
-	ServiceRegistry *ServiceResgistrySpec `json:"serviceRegistry,omitempty"`
+	ServiceRegistry *ServiceRegistrySpec `json:"serviceRegistry,omitempty"`
 }
 
 // ManagedConnectorSpec defines the desired state of ManagedConnector

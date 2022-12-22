@@ -2,12 +2,15 @@ package endpoints
 
 import (
 	"encoding/json"
-	camel "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
+	"strings"
+
+	kamelv1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
+
 	"github.com/pkg/errors"
 	"github.com/stoewer/go-strcase"
 	corev1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"strings"
 )
 
 type Builder struct {
@@ -83,10 +86,10 @@ func (builder *Builder) PropertiesFrom(properties map[string]interface{}, prefix
 
 	return builder
 }
-func (builder *Builder) Build() (camel.Endpoint, error) {
+func (builder *Builder) Build() (kamelv1alpha1.Endpoint, error) {
 	ref := builder.ref
 
-	answer := camel.Endpoint{
+	answer := kamelv1alpha1.Endpoint{
 		Ref: &ref,
 	}
 
@@ -107,7 +110,7 @@ func NewBuilder() *Builder {
 func NewKameletBuilder(name string) *Builder {
 	return &Builder{
 		ref: corev1.ObjectReference{
-			APIVersion: camel.SchemeGroupVersion.String(),
+			APIVersion: kamelv1alpha1.SchemeGroupVersion.String(),
 			Kind:       "Kamelet",
 			Name:       name,
 		},
@@ -115,13 +118,13 @@ func NewKameletBuilder(name string) *Builder {
 	}
 }
 
-func setProperties(endpoint *camel.Endpoint, properties map[string]interface{}) error {
+func setProperties(endpoint *kamelv1alpha1.Endpoint, properties map[string]interface{}) error {
 	data, err := json.Marshal(properties)
 	if err != nil {
 		return errors.Wrap(err, "unable to encode endpoint properties")
 	}
 
-	endpoint.Properties = &camel.EndpointProperties{
+	endpoint.Properties = &kamelv1alpha1.EndpointProperties{
 		RawMessage: data,
 	}
 
