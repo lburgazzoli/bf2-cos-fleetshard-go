@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	cosv2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources/secrets"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,18 +76,20 @@ func TestReify(t *testing.T) {
 
 	assert.Nil(t, err)
 
-	b, bs, bc, err := Reify(
-		cosv2.ManagedConnector{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "mctr-foo",
-				Namespace: "mctr-baz",
+	b, bs, bc, err := reify(
+		&controller.ReconciliationContext{
+			Connector: &cosv2.ManagedConnector{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mctr-foo",
+					Namespace: "mctr-baz",
+				},
+				Spec: cosv2.ManagedConnectorSpec{
+					ConnectorID:  "cid",
+					DeploymentID: "did",
+				},
 			},
-			Spec: cosv2.ManagedConnectorSpec{
-				ConnectorID:  "cid",
-				DeploymentID: "did",
-			},
+			Secret: &secret,
 		},
-		secret,
 	)
 
 	assert.Nil(t, err)
