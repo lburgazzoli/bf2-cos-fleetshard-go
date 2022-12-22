@@ -21,6 +21,7 @@ import (
 	coscamel "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/camel"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
 	meta2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/meta"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources"
 	"time"
 
 	camel "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
@@ -131,7 +132,7 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// TODO: must be properly computed or removed
 	rc.Connector.Status.Phase = "Unknown"
 
-	if err := controller.PatchStatus(ctx, r.Client, &connector, rc.Connector); err != nil {
+	if err := resources.PatchStatus(ctx, r.Client, &connector, rc.Connector); err != nil {
 		if errors.IsConflict(err) {
 			return ctrl.Result{RequeueAfter: 500 * time.Millisecond}, err
 		}
