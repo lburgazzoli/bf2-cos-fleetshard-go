@@ -9,9 +9,14 @@ metadata:
 spec:
   group: cos.bf2.dev
   names:
+    categories:
+    - cos
+    - mas
     kind: ManagedConnector
     listKind: ManagedConnectorList
     plural: managedconnectors
+    shortNames:
+    - mctr
     singular: managedconnector
   scope: Namespaced
   versions:

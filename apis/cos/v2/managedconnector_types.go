@@ -106,6 +106,7 @@ type ManagedConnectorStatus struct {
 }
 
 //+kubebuilder:object:root=true
+//+kubebuilder:resource:path=managedconnectors,scope=Namespaced,shortName=mctr,categories=cos;mas
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="CLUSTER_ID",type=string,JSONPath=`.spec.clusterId`,description="The Cluster ID"
 //+kubebuilder:printcolumn:name="CONNECTOR_ID",type=string,JSONPath=`.spec.connectorId`,description="The Connector ID"
