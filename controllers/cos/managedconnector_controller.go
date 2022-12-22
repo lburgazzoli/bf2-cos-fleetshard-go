@@ -18,14 +18,9 @@ package cos
 
 import (
 	"context"
-	errors2 "github.com/pkg/errors"
-	camel2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/camel"
+	coscamel "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/camel"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/conditions"
 	meta2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/meta"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"time"
 
 	camel "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
@@ -113,7 +108,7 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Reconcile
 	//
 
-	rc := camel2.ReconciliationContext{
+	rc := controller.ReconciliationContext{
 		C:      ctx,
 		M:      r.mgr,
 		Client: r.Client,
@@ -125,7 +120,7 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		Secret:    secret.DeepCopy(),
 	}
 
-	if err := reconcileConnector(rc); err != nil {
+	if err := coscamel.Reconcile(rc); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -145,127 +140,4 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func reconcileConnector(rc camel2.ReconciliationContext) error {
-
-	var binding camel.KameletBinding
-	var bindingSecret corev1.Secret
-	var bindingConfig corev1.ConfigMap
-
-	if err := rc.GetDependant(&binding); err != nil {
-		return errors2.Wrap(err, "failure loading dependant KameletBinding")
-	}
-	if err := rc.GetDependant(&bindingSecret); err != nil {
-		return errors2.Wrap(err, "failure loading dependant KameletBinding secret")
-	}
-	if err := rc.GetDependant(&bindingConfig); err != nil {
-		return errors2.Wrap(err, "failure loading dependant KameletBinding config")
-	}
-
-	if err := extractConditions(&rc.Connector.Status.Conditions, binding); err != nil {
-		return errors2.Wrap(err, "unable to compute binding conditions")
-	}
-
-	meta.SetStatusCondition(&rc.Connector.Status.Conditions, readyCondition(*rc.Connector))
-
-	//
-	// Update binding & secret
-	//
-
-	switch rc.Connector.Spec.Deployment.DesiredState {
-	case cos.DesiredStateReady:
-
-		b, bs, bc, err := camel2.Reify(*rc.Connector, *rc.Secret)
-		if err != nil {
-			return err
-		}
-
-		if err := controllerutil.SetControllerReference(rc.Connector, &bs, rc.M.GetScheme()); err != nil {
-			return errors2.Wrap(err, "unable to set binding secret controller reference")
-		}
-		if err := rc.PatchDependant(&bindingSecret, &bs); err != nil {
-			return errors2.Wrap(err, "unable to patch binding secret")
-		}
-
-		if err := controllerutil.SetControllerReference(rc.Connector, &bc, rc.M.GetScheme()); err != nil {
-			return errors2.Wrap(err, "unable to set binding config controller reference")
-		}
-		if err := rc.PatchDependant(&bindingConfig, &bc); err != nil {
-			return errors2.Wrap(err, "unable to patch binding config")
-		}
-
-		if err := controllerutil.SetControllerReference(rc.Connector, &b, rc.M.GetScheme()); err != nil {
-			return errors2.Wrap(err, "unable to set binding config controller reference")
-		}
-		if err := rc.PatchDependant(&binding, &b); err != nil {
-			return errors2.Wrap(err, "unable to patch binding")
-		}
-
-		setReadyCondition(
-			rc.Connector,
-			metav1.ConditionTrue,
-			conditions.ConditionReasonProvisioned,
-			conditions.ConditionMessageProvisioned)
-
-		rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
-	case cos.DesiredStateStopped:
-		setReadyCondition(
-			rc.Connector,
-			metav1.ConditionFalse,
-			conditions.ConditionReasonStopping,
-			conditions.ConditionMessageStopping)
-
-		deleted := 0
-
-		for _, r := range []client.Object{&binding, &bindingSecret, &bindingConfig} {
-			if err := rc.DeleteDependant(r); err != nil {
-				if !errors.IsNotFound(err) {
-					deleted++
-				}
-
-				return err
-			}
-		}
-
-		if deleted == 3 {
-			setReadyCondition(
-				rc.Connector,
-				metav1.ConditionFalse,
-				conditions.ConditionReasonStopped,
-				conditions.ConditionMessageStopped)
-
-			rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
-		}
-	case cos.DesiredStateDeleted:
-		setReadyCondition(
-			rc.Connector,
-			metav1.ConditionFalse,
-			conditions.ConditionReasonDeleting,
-			conditions.ConditionMessageDeleting)
-
-		deleted := 0
-
-		for _, r := range []client.Object{&binding, &bindingSecret, &bindingConfig} {
-			if err := rc.DeleteDependant(r); err != nil {
-				if !errors.IsNotFound(err) {
-					deleted++
-				}
-
-				return err
-			}
-		}
-
-		if deleted == 3 {
-			setReadyCondition(
-				rc.Connector,
-				metav1.ConditionFalse,
-				conditions.ConditionReasonDeleted,
-				conditions.ConditionMessageDeleted)
-
-			rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
-		}
-	}
-
-	return nil
 }

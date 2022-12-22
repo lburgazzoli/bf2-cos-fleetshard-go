@@ -1,17 +1,7 @@
 package camel
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
-	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/meta"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 type ConnectorType string
@@ -128,42 +118,4 @@ func (c *ConnectorConfiguration) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
-}
-
-type ReconciliationContext struct {
-	client.Client
-	types.NamespacedName
-
-	M manager.Manager
-	C context.Context
-
-	Connector *cos.ManagedConnector
-	Secret    *corev1.Secret
-}
-
-func (rc *ReconciliationContext) PatchDependant(source client.Object, target client.Object) error {
-	if target.GetAnnotations() == nil {
-		target.SetAnnotations(make(map[string]string))
-	}
-
-	target.GetAnnotations()[meta.MetaConnectorRevision] = fmt.Sprintf("%d", rc.Connector.Spec.Deployment.ConnectorResourceVersion)
-	target.GetAnnotations()[meta.MetaDeploymentRevision] = fmt.Sprintf("%d", rc.Connector.Spec.Deployment.DeploymentResourceVersion)
-
-	return controller.Apply(rc.C, rc.Client, source, target)
-}
-
-func (rc *ReconciliationContext) GetDependant(obj client.Object, opts ...client.GetOption) error {
-	err := rc.Client.Get(rc.C, rc.NamespacedName, obj, opts...)
-	if errors.IsNotFound(err) {
-		obj.SetName(rc.NamespacedName.Name)
-		obj.SetNamespace(rc.NamespacedName.Namespace)
-
-		return nil
-	}
-
-	return err
-}
-
-func (rc *ReconciliationContext) DeleteDependant(obj client.Object, opts ...client.DeleteOption) error {
-	return rc.Client.Delete(rc.C, obj, opts...)
 }

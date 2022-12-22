@@ -40,7 +40,7 @@ func (in StatusChanged) Update(e event.UpdateEvent) bool {
 		return false
 	}
 
-	return !equality.Semantic.DeepDerivative(s1.Interface(), s2.Interface())
+	return !equality.Semantic.DeepEqual(s1.Interface(), s2.Interface())
 }
 
 type AnnotationChanged struct {

@@ -5,7 +5,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
+	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/conditions"
+	meta2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/meta"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sort"
+	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -157,4 +165,75 @@ func computeTraitsDigest(resource camelv1lapha1.KameletBinding) (string, error) 
 	}
 
 	return base64.StdEncoding.EncodeToString(hash.Sum(nil)), nil
+}
+
+func ExtractConditions(conditions *[]metav1.Condition, binding camelv1lapha1.KameletBinding) error {
+
+	var gen int64
+	var err error
+
+	rev := binding.Annotations[meta2.MetaDeploymentRevision]
+	if rev != "" {
+		gen, err = strconv.ParseInt(rev, 10, 64)
+		if err != nil {
+			return errors.Wrap(err, "unable to determine revision")
+		}
+	}
+
+	// TODO: conditions must be filtered out
+	for i := range binding.Status.Conditions {
+		c := binding.Status.Conditions[i]
+
+		meta.SetStatusCondition(conditions, metav1.Condition{
+			Type:               "Workload" + string(c.Type),
+			Status:             metav1.ConditionStatus(c.Status),
+			LastTransitionTime: c.LastTransitionTime,
+			Reason:             c.Reason,
+			Message:            c.Message,
+
+			// use ObservedGeneration to reference the deployment revision the
+			// condition is about
+			ObservedGeneration: gen,
+		})
+	}
+
+	if len(binding.Status.Conditions) == 0 {
+		meta.SetStatusCondition(conditions, metav1.Condition{
+			Type:    "WorkloadReady",
+			Status:  metav1.ConditionFalse,
+			Reason:  "Unknown",
+			Message: "Unknown",
+
+			// use ObservedGeneration to reference the deployment revision the
+			// condition is about
+			ObservedGeneration: gen,
+		})
+	}
+
+	return nil
+}
+
+func ReadyCondition(connector cos.ManagedConnector) metav1.Condition {
+	ready := metav1.Condition{
+		Type:               conditions.ConditionTypeReady,
+		Status:             metav1.ConditionFalse,
+		Reason:             conditions.ConditionReasonUnknown,
+		Message:            conditions.ConditionMessageUnknown,
+		ObservedGeneration: connector.Spec.Deployment.DeploymentResourceVersion,
+	}
+
+	if connector.Generation != connector.Status.ObservedGeneration {
+		ready.Reason = conditions.ConditionMessageProvisioning
+		ready.Message = conditions.ConditionReasonProvisioning
+	}
+
+	return ready
+}
+
+func SetReadyCondition(connector *cos.ManagedConnector, status metav1.ConditionStatus, reason string, message string) {
+	controller.UpdateStatusCondition(&connector.Status.Conditions, conditions.ConditionTypeReady, func(condition *metav1.Condition) {
+		condition.Status = status
+		condition.Reason = reason
+		condition.Message = message
+	})
 }

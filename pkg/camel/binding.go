@@ -8,11 +8,17 @@ import (
 	"github.com/pkg/errors"
 	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/camel/endpoints"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/conditions"
 	meta2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/meta"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources/configmaps"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources/secrets"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sort"
 )
 
@@ -24,27 +30,147 @@ const (
 	ServiceAccountClientSecret string = "sa_client_secret"
 )
 
-func Reify(
-	connector cos.ManagedConnector,
-	secret corev1.Secret,
-) (camelv1alpha1.KameletBinding, corev1.Secret, corev1.ConfigMap, error) {
+func Reconcile(rc controller.ReconciliationContext) error {
+
+	var binding camelv1alpha1.KameletBinding
+	var bindingSecret corev1.Secret
+	var bindingConfig corev1.ConfigMap
+
+	if err := rc.GetDependant(&binding); err != nil {
+		return errors.Wrap(err, "failure loading dependant KameletBinding")
+	}
+	if err := rc.GetDependant(&bindingSecret); err != nil {
+		return errors.Wrap(err, "failure loading dependant KameletBinding secret")
+	}
+	if err := rc.GetDependant(&bindingConfig); err != nil {
+		return errors.Wrap(err, "failure loading dependant KameletBinding config")
+	}
+
+	if err := ExtractConditions(&rc.Connector.Status.Conditions, binding); err != nil {
+		return errors.Wrap(err, "unable to compute binding conditions")
+	}
+
+	meta.SetStatusCondition(&rc.Connector.Status.Conditions, ReadyCondition(*rc.Connector))
+
+	//
+	// Update binding & secret
+	//
+
+	switch rc.Connector.Spec.Deployment.DesiredState {
+	case cos.DesiredStateReady:
+
+		b, bs, bc, err := Reify(&rc)
+		if err != nil {
+			return err
+		}
+
+		if err := controllerutil.SetControllerReference(rc.Connector, &bs, rc.M.GetScheme()); err != nil {
+			return errors.Wrap(err, "unable to set binding secret controller reference")
+		}
+		if err := rc.PatchDependant(&bindingSecret, &bs); err != nil {
+			return errors.Wrap(err, "unable to patch binding secret")
+		}
+
+		if err := controllerutil.SetControllerReference(rc.Connector, &bc, rc.M.GetScheme()); err != nil {
+			return errors.Wrap(err, "unable to set binding config controller reference")
+		}
+		if err := rc.PatchDependant(&bindingConfig, &bc); err != nil {
+			return errors.Wrap(err, "unable to patch binding config")
+		}
+
+		if err := controllerutil.SetControllerReference(rc.Connector, &b, rc.M.GetScheme()); err != nil {
+			return errors.Wrap(err, "unable to set binding config controller reference")
+		}
+		if err := rc.PatchDependant(&binding, &b); err != nil {
+			return errors.Wrap(err, "unable to patch binding")
+		}
+
+		SetReadyCondition(
+			rc.Connector,
+			metav1.ConditionTrue,
+			conditions.ConditionReasonProvisioned,
+			conditions.ConditionMessageProvisioned)
+
+		rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
+	case cos.DesiredStateStopped:
+		SetReadyCondition(
+			rc.Connector,
+			metav1.ConditionFalse,
+			conditions.ConditionReasonStopping,
+			conditions.ConditionMessageStopping)
+
+		deleted := 0
+
+		for _, r := range []client.Object{&binding, &bindingSecret, &bindingConfig} {
+			if err := rc.DeleteDependant(r); err != nil {
+				if !k8serrors.IsNotFound(err) {
+					return err
+				}
+
+				deleted++
+			}
+		}
+
+		if deleted == 3 {
+			SetReadyCondition(
+				rc.Connector,
+				metav1.ConditionFalse,
+				conditions.ConditionReasonStopped,
+				conditions.ConditionMessageStopped)
+
+			rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
+		}
+	case cos.DesiredStateDeleted:
+		SetReadyCondition(
+			rc.Connector,
+			metav1.ConditionFalse,
+			conditions.ConditionReasonDeleting,
+			conditions.ConditionMessageDeleting)
+
+		deleted := 0
+
+		for _, r := range []client.Object{&binding, &bindingSecret, &bindingConfig} {
+			if err := rc.DeleteDependant(r); err != nil {
+				if !k8serrors.IsNotFound(err) {
+					return err
+				}
+
+				deleted++
+			}
+		}
+
+		if deleted == 3 {
+			SetReadyCondition(
+				rc.Connector,
+				metav1.ConditionFalse,
+				conditions.ConditionReasonDeleted,
+				conditions.ConditionMessageDeleted)
+
+			rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
+		}
+	}
+
+	return nil
+}
+
+func Reify(rc *controller.ReconciliationContext) (camelv1alpha1.KameletBinding, corev1.Secret, corev1.ConfigMap, error) {
 
 	binding := camelv1alpha1.KameletBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      connector.Name,
-			Namespace: connector.Namespace,
+			Name:      rc.Connector.Name,
+			Namespace: rc.Connector.Namespace,
 		},
 	}
 	bindingSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      connector.Name,
-			Namespace: connector.Namespace,
+			Name:      rc.Connector.Name,
+			Namespace: rc.Connector.Namespace,
 		},
 	}
 	bindingConfig := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      connector.Name,
-			Namespace: connector.Namespace,
+			Name:      rc.Connector.Name,
+			Namespace: rc.Connector.Namespace,
 		},
 	}
 
@@ -52,13 +178,13 @@ func Reify(
 	var meta ShardMetadata
 	var config ConnectorConfiguration
 
-	if err := secrets.ExtractStructuredData(secret, SecretEntryServiceAccount, &sa); err != nil {
+	if err := secrets.ExtractStructuredData(*rc.Secret, SecretEntryServiceAccount, &sa); err != nil {
 		return binding, bindingSecret, bindingConfig, errors.Wrap(err, "error decoding service account")
 	}
-	if err := secrets.ExtractStructuredData(secret, SecretEntryMeta, &meta); err != nil {
+	if err := secrets.ExtractStructuredData(*rc.Secret, SecretEntryMeta, &meta); err != nil {
 		return binding, bindingSecret, bindingConfig, errors.Wrap(err, "error decoding shard meta")
 	}
-	if err := secrets.ExtractStructuredData(secret, SecretEntryConnector, &config); err != nil {
+	if err := secrets.ExtractStructuredData(*rc.Secret, SecretEntryConnector, &config); err != nil {
 		return binding, bindingSecret, bindingConfig, errors.Wrap(err, "error decoding config")
 	}
 
@@ -140,7 +266,7 @@ func Reify(
 	switch meta.ConnectorType {
 	case ConnectorTypeSource:
 		src, err := endpoints.NewKameletBuilder(meta.Kamelets.Adapter.Name).
-			Property("id", connector.Spec.ConnectorID+"-source").
+			Property("id", rc.Connector.Spec.ConnectorID+"-source").
 			PropertiesFrom(config.Properties, meta.Kamelets.Adapter.Prefix).
 			Build()
 
@@ -149,8 +275,8 @@ func Reify(
 		}
 
 		sink, err := endpoints.NewKameletBuilder(meta.Kamelets.Kafka.Name).
-			Property("id", connector.Spec.ConnectorID+"-sink").
-			Property("bootstrapServers", connector.Spec.Deployment.Kafka.URL).
+			Property("id", rc.Connector.Spec.ConnectorID+"-sink").
+			Property("bootstrapServers", rc.Connector.Spec.Deployment.Kafka.URL).
 			Property("valueSerializer", "org.bf2.cos.connector.camel.serdes.bytes.ByteArraySerializer").
 			PropertyPlaceholder("user", ServiceAccountClientID).
 			PropertyPlaceholder("password", ServiceAccountClientSecret).
@@ -168,9 +294,9 @@ func Reify(
 
 	case ConnectorTypeSink:
 		src, err := endpoints.NewKameletBuilder(meta.Kamelets.Kafka.Name).
-			Property("id", connector.Spec.ConnectorID+"-source").
-			Property("bootstrapServers", connector.Spec.Deployment.Kafka.URL).
-			Property("consumerGroup", connector.Spec.ConnectorID).
+			Property("id", rc.Connector.Spec.ConnectorID+"-source").
+			Property("bootstrapServers", rc.Connector.Spec.Deployment.Kafka.URL).
+			Property("consumerGroup", rc.Connector.Spec.ConnectorID).
 			Property("valueDeserializer", "org.bf2.cos.connector.camel.serdes.bytes.ByteArrayDeserializer").
 			PropertyPlaceholder("user", ServiceAccountClientID).
 			PropertyPlaceholder("password", ServiceAccountClientSecret).
@@ -182,7 +308,7 @@ func Reify(
 		}
 
 		sink, err := endpoints.NewKameletBuilder(meta.Kamelets.Adapter.Name).
-			Property("id", connector.Spec.ConnectorID+"-sink").
+			Property("id", rc.Connector.Spec.ConnectorID+"-sink").
 			PropertiesFrom(config.Properties, meta.Kamelets.Adapter.Prefix).
 			Build()
 
@@ -220,8 +346,8 @@ func Reify(
 		Traits: camelv1.Traits{
 			Environment: &trait.EnvironmentTrait{
 				Vars: []string{
-					"CONNECTOR_ID=" + connector.Spec.ConnectorID,
-					"CONNECTOR_DEPLOYMENT_ID=" + connector.Spec.DeploymentID,
+					"CONNECTOR_ID=" + rc.Connector.Spec.ConnectorID,
+					"CONNECTOR_DEPLOYMENT_ID=" + rc.Connector.Spec.DeploymentID,
 					"CONNECTOR_SECRET_NAME=" + bindingSecret.Name,
 					"CONNECTOR_CONFIGMAP_NAME=" + bindingConfig.Name,
 					"CONNECTOR_SECRET_CHECKSUM=" + scs,

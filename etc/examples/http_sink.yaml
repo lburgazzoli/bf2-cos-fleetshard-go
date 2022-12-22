@@ -4,7 +4,7 @@ kind: Secret
 type: Opaque
 metadata:
   labels:
-    cos.bf2.org/uow: '9bsv0s3l50qg02oqvlqg'
+    cos.bf2.dev/uow: '9bsv0s3l50qg02oqvlqg'
   name: 'mctr-http-sink-deploy'
 stringData:
   connector: '{"http_method":"POST","http_url":"https://httpbin.org/post","kafka_topic":"cos"}'
@@ -15,7 +15,7 @@ apiVersion: cos.bf2.dev/v2
 kind: ManagedConnector
 metadata:
   labels:
-    cos.bf2.org/uow: '9bsv0s3l50qg02oqvlqg'
+    cos.bf2.dev/uow: '9bsv0s3l50qg02oqvlqg'
   name: 'mctr-http-sink'
 spec:
   clusterId: '9bsv0s50ce1g02v21usg'

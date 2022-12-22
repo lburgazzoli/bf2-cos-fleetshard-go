@@ -22,22 +22,22 @@ import (
 	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/conditions"
+	meta2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/meta"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strconv"
 )
 
-func extractConditions(conditions *[]metav1.Condition, binding camel.KameletBinding) error {
+func ExtractConditions(conditions *[]metav1.Condition, binding camel.KameletBinding) error {
 
+	gen, err := strconv.ParseInt(binding.Annotations[meta2.MetaDeploymentRevision], 10, 64)
+	if err != nil {
+		return errors.Wrap(err, "unable to determine revision")
+	}
+
+	// TODO: conditions must be filtered out
 	for i := range binding.Status.Conditions {
 		c := binding.Status.Conditions[i]
-
-		// TODO: conditions must be filtered out
-
-		gen, err := strconv.ParseInt(binding.Annotations["cos.bf2.dev/deployment.revision"], 10, 64)
-		if err != nil {
-			return errors.Wrap(err, "unable to determine revision")
-		}
 
 		meta.SetStatusCondition(conditions, metav1.Condition{
 			Type:               "Workload" + string(c.Type),
@@ -55,7 +55,7 @@ func extractConditions(conditions *[]metav1.Condition, binding camel.KameletBind
 	return nil
 }
 
-func readyCondition(connector cos.ManagedConnector) metav1.Condition {
+func ReadyCondition(connector cos.ManagedConnector) metav1.Condition {
 	ready := metav1.Condition{
 		Type:               conditions.ConditionTypeReady,
 		Status:             metav1.ConditionFalse,
@@ -72,7 +72,7 @@ func readyCondition(connector cos.ManagedConnector) metav1.Condition {
 	return ready
 }
 
-func setReadyCondition(connector *cos.ManagedConnector, status metav1.ConditionStatus, reason string, message string) {
+func SetReadyCondition(connector *cos.ManagedConnector, status metav1.ConditionStatus, reason string, message string) {
 	controller.UpdateStatusCondition(&connector.Status.Conditions, conditions.ConditionTypeReady, func(condition *metav1.Condition) {
 		condition.Status = status
 		condition.Reason = reason
