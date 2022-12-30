@@ -2,7 +2,7 @@ package conditions
 
 import (
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -41,7 +41,7 @@ func Ready(connector v2.ManagedConnector) v1.Condition {
 }
 
 func SetReady(connector *v2.ManagedConnector, status v1.ConditionStatus, reason string, message string) {
-	controller.UpdateStatusCondition(&connector.Status.Conditions, ConditionTypeReady, func(condition *v1.Condition) {
+	resources.UpdateStatusCondition(&connector.Status.Conditions, ConditionTypeReady, func(condition *v1.Condition) {
 		condition.Status = status
 		condition.Reason = reason
 		condition.Message = message

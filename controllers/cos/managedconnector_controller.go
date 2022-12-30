@@ -18,13 +18,13 @@ package cos
 
 import (
 	"context"
-	coscamel "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/camel"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
-	meta2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/meta"
+	meta2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"time"
 
-	camel "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
 	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/predicates"
 	corev1 "k8s.io/api/core/v1"
@@ -44,35 +44,52 @@ type ManagedConnectorReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	mgr    manager.Manager
+	ctrl   controller.Controller
 }
 
-func NewManagedConnectorReconciler(mgr manager.Manager) (*ManagedConnectorReconciler, error) {
+func NewManagedConnectorReconciler(mgr manager.Manager, ctrl controller.Controller) (*ManagedConnectorReconciler, error) {
 	r := &ManagedConnectorReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		mgr:    mgr,
+		ctrl:   ctrl,
 	}
 
-	return r, r.SetupWithManager(mgr)
+	return r, r.Initialize(mgr)
 }
 
-func (r *ManagedConnectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+func (r *ManagedConnectorReconciler) Initialize(mgr ctrl.Manager) error {
+	c := ctrl.NewControllerManagedBy(mgr).
+		Named("ManagedConnectorController").
 		For(&cos.ManagedConnector{}, builder.WithPredicates(
 			predicate.Or(
+				// TODO: add label selection
+				// predicate.LabelSelectorPredicate(),
 				predicate.GenerationChangedPredicate{},
 				predicate.AnnotationChangedPredicate{},
 				predicate.LabelChangedPredicate{},
 			))).
-		Owns(&corev1.Secret{}, builder.WithPredicates(
-			predicate.Or(
-				predicate.ResourceVersionChangedPredicate{},
-				predicate.AnnotationChangedPredicate{},
-				predicate.LabelChangedPredicate{},
-			))).
-		Owns(&camel.KameletBinding{}, builder.WithPredicates(predicates.StatusChanged{})).
-		Named("ManagedConnectorController").
-		Complete(r)
+		Watches(
+			&source.Kind{Type: &corev1.Secret{}},
+			&handler.EnqueueRequestForOwner{OwnerType: &cos.ManagedConnector{}},
+			builder.WithPredicates(
+				predicate.Or(
+					// TODO: add label selection
+					// predicate.LabelSelectorPredicate(),
+					predicate.ResourceVersionChangedPredicate{},
+					predicate.AnnotationChangedPredicate{},
+					predicate.LabelChangedPredicate{},
+				)))
+
+	for i := range r.ctrl.Owned {
+		c.Owns(
+			r.ctrl.Owned[i],
+			// TODO: add label selection
+			// predicate.LabelSelectorPredicate(),
+			builder.WithPredicates(predicates.StatusChanged{}))
+	}
+
+	return c.Complete(r)
 }
 
 //+kubebuilder:rbac:groups=cos.bf2.dev,resources=managedconnectors,verbs=get;list;watch;create;update;patch;delete
@@ -121,7 +138,7 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		Secret:    secret.DeepCopy(),
 	}
 
-	if err := coscamel.Reconcile(rc); err != nil {
+	if err := r.ctrl.ApplyFunc(rc); err != nil {
 		return ctrl.Result{}, err
 	}
 

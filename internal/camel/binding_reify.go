@@ -2,6 +2,8 @@ package camel
 
 import (
 	"encoding/base64"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/internal/camel/endpoints"
+	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
 	"sort"
 
 	kamelv1 "github.com/apache/camel-k/pkg/apis/camel/v1"
@@ -9,9 +11,7 @@ import (
 	kamelv1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
 
 	"github.com/pkg/errors"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/camel/endpoints"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
-	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/meta"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources/configmaps"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources/secrets"
 

@@ -2,11 +2,11 @@ package camel
 
 import (
 	"fmt"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/internal/camel/endpoints"
 
 	kamelv1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
 
 	"github.com/pkg/errors"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/camel/endpoints"
 )
 
 func configureSteps(binding *kamelv1alpha1.KameletBinding, cc ConnectorConfiguration) error {

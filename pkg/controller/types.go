@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
-	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/meta"
+	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -49,4 +49,10 @@ func (rc *ReconciliationContext) GetDependant(obj client.Object, opts ...client.
 
 func (rc *ReconciliationContext) DeleteDependant(obj client.Object, opts ...client.DeleteOption) error {
 	return rc.Client.Delete(rc.C, obj, opts...)
+}
+
+// Controller ---
+type Controller struct {
+	Owned     []client.Object
+	ApplyFunc func(ReconciliationContext) error
 }

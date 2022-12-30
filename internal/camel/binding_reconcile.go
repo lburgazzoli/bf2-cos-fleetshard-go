@@ -2,11 +2,11 @@ package camel
 
 import (
 	kamelv1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/conditions"
 
 	"github.com/pkg/errors"
 	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/conditions"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
