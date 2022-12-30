@@ -6,8 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	cosv2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
+	conditions2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/conditions"
 	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sort"
 	"strconv"
@@ -164,7 +165,7 @@ func computeTraitsDigest(resource kamelv1lapha1.KameletBinding) (string, error) 
 	return base64.StdEncoding.EncodeToString(hash.Sum(nil)), nil
 }
 
-func extractConditions(conditions *[]metav1.Condition, binding kamelv1lapha1.KameletBinding) error {
+func extractConditions(conditions *[]cosv2.Condition, binding kamelv1lapha1.KameletBinding) error {
 
 	var gen int64
 	var err error
@@ -181,29 +182,33 @@ func extractConditions(conditions *[]metav1.Condition, binding kamelv1lapha1.Kam
 	for i := range binding.Status.Conditions {
 		c := binding.Status.Conditions[i]
 
-		meta.SetStatusCondition(conditions, metav1.Condition{
-			Type:               "Workload" + string(c.Type),
-			Status:             metav1.ConditionStatus(c.Status),
-			LastTransitionTime: c.LastTransitionTime,
-			Reason:             c.Reason,
-			Message:            c.Message,
+		conditions2.Set(conditions, cosv2.Condition{
+			Condition: metav1.Condition{
+				Type:               "Workload" + string(c.Type),
+				Status:             metav1.ConditionStatus(c.Status),
+				LastTransitionTime: c.LastTransitionTime,
+				Reason:             c.Reason,
+				Message:            c.Message,
 
-			// use ObservedGeneration to reference the deployment revision the
-			// condition is about
-			ObservedGeneration: gen,
+				// use ObservedGeneration to reference the deployment revision the
+				// condition is about
+				ObservedGeneration: gen,
+			},
 		})
 	}
 
 	if len(binding.Status.Conditions) == 0 {
-		meta.SetStatusCondition(conditions, metav1.Condition{
-			Type:    "WorkloadReady",
-			Status:  metav1.ConditionFalse,
-			Reason:  "Unknown",
-			Message: "Unknown",
+		conditions2.Set(conditions, cosv2.Condition{
+			Condition: metav1.Condition{
+				Type:    "WorkloadReady",
+				Status:  metav1.ConditionFalse,
+				Reason:  "Unknown",
+				Message: "Unknown",
 
-			// use ObservedGeneration to reference the deployment revision the
-			// condition is about
-			ObservedGeneration: gen,
+				// use ObservedGeneration to reference the deployment revision the
+				// condition is about
+				ObservedGeneration: gen,
+			},
 		})
 	}
 

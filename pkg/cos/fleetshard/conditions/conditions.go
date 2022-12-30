@@ -1,9 +1,9 @@
 package conditions
 
 import (
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources"
+	cosv2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 )
 
 const ConditionTypeReady string = "Ready"
@@ -23,13 +23,16 @@ const ConditionMessageUnknown string = "Unknown"
 const ConditionReasonUnknown string = "Unknown"
 const ConditionMessageProvisioning string = "Provisioning"
 
-func Ready(connector v2.ManagedConnector) v1.Condition {
-	ready := v1.Condition{
-		Type:               ConditionTypeReady,
-		Status:             v1.ConditionFalse,
-		Reason:             ConditionReasonUnknown,
-		Message:            ConditionMessageUnknown,
-		ObservedGeneration: connector.Spec.Deployment.DeploymentResourceVersion,
+func Ready(connector cosv2.ManagedConnector) cosv2.Condition {
+	ready := cosv2.Condition{
+		Condition: v1.Condition{
+			Type:               ConditionTypeReady,
+			Status:             v1.ConditionFalse,
+			Reason:             ConditionReasonUnknown,
+			Message:            ConditionMessageUnknown,
+			ObservedGeneration: connector.Status.ObservedGeneration,
+		},
+		ResourceRevision: connector.Spec.Deployment.DeploymentResourceVersion,
 	}
 
 	if connector.Generation != connector.Status.ObservedGeneration {
@@ -40,10 +43,64 @@ func Ready(connector v2.ManagedConnector) v1.Condition {
 	return ready
 }
 
-func SetReady(connector *v2.ManagedConnector, status v1.ConditionStatus, reason string, message string) {
-	resources.UpdateStatusCondition(&connector.Status.Conditions, ConditionTypeReady, func(condition *v1.Condition) {
+func UpdateReady(connector *cosv2.ManagedConnector, status v1.ConditionStatus, reason string, message string) {
+	Update(&connector.Status.Conditions, ConditionTypeReady, func(condition *cosv2.Condition) {
 		condition.Status = status
 		condition.Reason = reason
 		condition.Message = message
 	})
+}
+
+func Update(conditions *[]cosv2.Condition, conditionType string, consumer func(*cosv2.Condition)) {
+	c := Find(*conditions, conditionType)
+	if c == nil {
+		c = &cosv2.Condition{
+			Condition: v1.Condition{
+				Type: conditionType,
+			},
+		}
+	}
+
+	consumer(c)
+
+	Set(conditions, *c)
+
+}
+
+// Find finds the conditionType in conditions.
+func Find(conditions []cosv2.Condition, conditionType string) *cosv2.Condition {
+	for i := range conditions {
+		if conditions[i].Type == conditionType {
+			return &conditions[i]
+		}
+	}
+
+	return nil
+}
+
+func Set(conditions *[]cosv2.Condition, newCondition cosv2.Condition) {
+	if conditions == nil {
+		return
+	}
+	existingCondition := Find(*conditions, newCondition.Type)
+	if existingCondition == nil {
+		if newCondition.LastTransitionTime.IsZero() {
+			newCondition.LastTransitionTime = v1.NewTime(time.Now())
+		}
+		*conditions = append(*conditions, newCondition)
+		return
+	}
+
+	if existingCondition.Status != newCondition.Status {
+		existingCondition.Status = newCondition.Status
+		if !newCondition.LastTransitionTime.IsZero() {
+			existingCondition.LastTransitionTime = newCondition.LastTransitionTime
+		} else {
+			existingCondition.LastTransitionTime = v1.NewTime(time.Now())
+		}
+	}
+
+	existingCondition.Reason = newCondition.Reason
+	existingCondition.Message = newCondition.Message
+	existingCondition.ObservedGeneration = newCondition.ObservedGeneration
 }
