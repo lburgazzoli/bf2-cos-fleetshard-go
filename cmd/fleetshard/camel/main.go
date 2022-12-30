@@ -45,7 +45,7 @@ func init() {
 func main() {
 	c := controller.Controller{
 		Owned:     []client.Object{&camelv1alpha1.KameletBinding{}},
-		ApplyFunc: camel.Reconcile,
+		ApplyFunc: camel.Apply,
 	}
 
 	if err := fleetshard.Start(c); err != nil {

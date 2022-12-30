@@ -109,6 +109,7 @@ type ManagedConnectorStatus struct {
 	Phase              string      `json:"phase"`
 	Conditions         []Condition `json:"conditions,omitempty"`
 	ObservedGeneration int64       `json:"observedGeneration,omitempty"`
+	OperatorID         string      `json:"operatorId"`
 }
 
 //+kubebuilder:object:root=true

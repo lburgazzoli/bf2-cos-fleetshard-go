@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func Reconcile(rc controller.ReconciliationContext) error {
+func Apply(rc controller.ReconciliationContext) error {
 
 	var binding kamelv1alpha1.KameletBinding
 	var bindingSecret corev1.Secret
@@ -29,6 +29,10 @@ func Reconcile(rc controller.ReconciliationContext) error {
 	if err := rc.GetDependant(&bindingConfig); err != nil {
 		return errors.Wrap(err, "failure loading dependant KameletBinding config")
 	}
+
+	//
+	// Update connector
+	//
 
 	if err := extractConditions(&rc.Connector.Status.Conditions, binding); err != nil {
 		return errors.Wrap(err, "unable to compute binding conditions")
@@ -69,19 +73,19 @@ func Reconcile(rc controller.ReconciliationContext) error {
 			return errors.Wrap(err, "unable to patch binding")
 		}
 
-		conditions.UpdateReady(
-			rc.Connector,
-			metav1.ConditionTrue,
-			conditions.ConditionReasonProvisioned,
-			conditions.ConditionMessageProvisioned)
+		conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeReady, func(condition *cos.Condition) {
+			condition.Status = metav1.ConditionTrue
+			condition.Reason = conditions.ConditionReasonProvisioned
+			condition.Message = conditions.ConditionMessageProvisioned
+		})
 
 		rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
 	case cos.DesiredStateStopped:
-		conditions.UpdateReady(
-			rc.Connector,
-			metav1.ConditionFalse,
-			conditions.ConditionReasonStopping,
-			conditions.ConditionMessageStopping)
+		conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeReady, func(condition *cos.Condition) {
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = conditions.ConditionReasonStopping
+			condition.Message = conditions.ConditionMessageStopping
+		})
 
 		deleted := 0
 
@@ -96,20 +100,20 @@ func Reconcile(rc controller.ReconciliationContext) error {
 		}
 
 		if deleted == 3 {
-			conditions.UpdateReady(
-				rc.Connector,
-				metav1.ConditionFalse,
-				conditions.ConditionReasonStopped,
-				conditions.ConditionMessageStopped)
+			conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeReady, func(condition *cos.Condition) {
+				condition.Status = metav1.ConditionFalse
+				condition.Reason = conditions.ConditionReasonStopped
+				condition.Message = conditions.ConditionMessageStopped
+			})
 
 			rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
 		}
 	case cos.DesiredStateDeleted:
-		conditions.UpdateReady(
-			rc.Connector,
-			metav1.ConditionFalse,
-			conditions.ConditionReasonDeleting,
-			conditions.ConditionMessageDeleting)
+		conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeReady, func(condition *cos.Condition) {
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = conditions.ConditionReasonDeleting
+			condition.Message = conditions.ConditionMessageDeleting
+		})
 
 		deleted := 0
 
@@ -124,11 +128,11 @@ func Reconcile(rc controller.ReconciliationContext) error {
 		}
 
 		if deleted == 3 {
-			conditions.UpdateReady(
-				rc.Connector,
-				metav1.ConditionFalse,
-				conditions.ConditionReasonDeleted,
-				conditions.ConditionMessageDeleted)
+			conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeReady, func(condition *cos.Condition) {
+				condition.Status = metav1.ConditionFalse
+				condition.Reason = conditions.ConditionReasonDeleted
+				condition.Message = conditions.ConditionMessageDeleted
+			})
 
 			rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
 		}

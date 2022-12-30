@@ -43,14 +43,6 @@ func Ready(connector cosv2.ManagedConnector) cosv2.Condition {
 	return ready
 }
 
-func UpdateReady(connector *cosv2.ManagedConnector, status v1.ConditionStatus, reason string, message string) {
-	Update(&connector.Status.Conditions, ConditionTypeReady, func(condition *cosv2.Condition) {
-		condition.Status = status
-		condition.Reason = reason
-		condition.Message = message
-	})
-}
-
 func Update(conditions *[]cosv2.Condition, conditionType string, consumer func(*cosv2.Condition)) {
 	c := Find(*conditions, conditionType)
 	if c == nil {

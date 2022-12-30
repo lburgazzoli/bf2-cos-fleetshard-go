@@ -20,7 +20,7 @@ import (
 	"context"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
 	meta2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"time"
@@ -28,7 +28,7 @@ import (
 	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/predicates"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -103,20 +103,54 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	l := log.FromContext(ctx)
 	l.Info("Reconciling", "namespace", req.Namespace, "name", req.Name)
 
-	var connector cos.ManagedConnector
-	var secret corev1.Secret
+	rc := controller.ReconciliationContext{
+		C:      ctx,
+		M:      r.mgr,
+		Client: r.Client,
+		NamespacedName: types.NamespacedName{
+			Name:      req.Name,
+			Namespace: req.Namespace,
+		},
+		Connector: &cos.ManagedConnector{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      req.Name,
+				Namespace: req.Namespace,
+			},
+		},
+		Secret: &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      req.Name,
+				Namespace: req.Namespace,
+			},
+		},
+		ConfigMap: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      req.Name,
+				Namespace: req.Namespace,
+			},
+		},
+	}
 
-	if err := r.Get(ctx, types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, &connector); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, rc.Connector); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	if err := r.Get(ctx, types.NamespacedName{Name: req.Name + "-deploy", Namespace: req.Namespace}, &secret); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: req.Name + "-deploy", Namespace: req.Namespace}, rc.Secret); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+	if err := r.Get(ctx, types.NamespacedName{Name: req.Name + "-deploy", Namespace: req.Namespace}, rc.ConfigMap); err != nil {
+		if k8serrors.IsNotFound(err) {
+			if err := r.Create(ctx, rc.ConfigMap); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	// we'll ignore notification for resources not with the same UOW.
 	// we'll need to wait for a new notification.
 
-	if connector.Annotations[meta2.MetaUnitOfWork] != secret.Annotations[meta2.MetaUnitOfWork] {
+	if rc.Connector.Annotations[meta2.MetaUnitOfWork] != rc.Connector.Annotations[meta2.MetaUnitOfWork] {
 		return ctrl.Result{
 			RequeueAfter: 1 * time.Second,
 		}, nil
@@ -126,17 +160,8 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Reconcile
 	//
 
-	rc := controller.ReconciliationContext{
-		C:      ctx,
-		M:      r.mgr,
-		Client: r.Client,
-		NamespacedName: types.NamespacedName{
-			Name:      req.Name,
-			Namespace: req.Namespace,
-		},
-		Connector: connector.DeepCopy(),
-		Secret:    secret.DeepCopy(),
-	}
+	// safe copy
+	rc.Connector = rc.Connector.DeepCopy()
 
 	if err := r.ctrl.ApplyFunc(rc); err != nil {
 		return ctrl.Result{}, err
@@ -149,8 +174,8 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// TODO: must be properly computed or removed
 	rc.Connector.Status.Phase = "Unknown"
 
-	if err := resources.PatchStatus(ctx, r.Client, &connector, rc.Connector); err != nil {
-		if errors.IsConflict(err) {
+	if err := r.Status().Update(ctx, rc.Connector); err != nil {
+		if k8serrors.IsConflict(err) {
 			return ctrl.Result{RequeueAfter: 500 * time.Millisecond}, err
 		}
 

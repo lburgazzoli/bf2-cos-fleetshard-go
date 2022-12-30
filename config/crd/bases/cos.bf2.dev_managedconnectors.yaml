@@ -195,9 +195,12 @@ spec:
               observedGeneration:
                 format: int64
                 type: integer
+              operatorId:
+                type: string
               phase:
                 type: string
             required:
+            - operatorId
             - phase
             type: object
         type: object

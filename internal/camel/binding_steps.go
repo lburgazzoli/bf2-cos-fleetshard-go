@@ -2,9 +2,8 @@ package camel
 
 import (
 	"fmt"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/internal/camel/endpoints"
-
 	kamelv1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/internal/camel/endpoints"
 
 	"github.com/pkg/errors"
 )

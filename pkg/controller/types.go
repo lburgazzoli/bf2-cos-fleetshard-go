@@ -22,6 +22,7 @@ type ReconciliationContext struct {
 
 	Connector *cos.ManagedConnector
 	Secret    *corev1.Secret
+	ConfigMap *corev1.ConfigMap
 }
 
 func (rc *ReconciliationContext) PatchDependant(source client.Object, target client.Object) error {
