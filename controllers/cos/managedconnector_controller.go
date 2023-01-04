@@ -18,12 +18,12 @@ package cos
 
 import (
 	"context"
-	"encoding/json"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
 	meta2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"sort"
 	"time"
 
 	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
@@ -182,18 +182,15 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	//if err := resources.PatchStatus(ctx, r.Client, &connector, rc.Connector); err != nil {
 	// resources.PatchStatus(ctx, r.Client, &orig, rc.Connector)
 
+	sort.SliceStable(rc.Connector.Status.Conditions, func(i, j int) bool {
+		return rc.Connector.Status.Conditions[i].Type < rc.Connector.Status.Conditions[j].Type
+	})
+
 	if err := r.Status().Update(ctx, rc.Connector); err != nil {
 		if k8serrors.IsConflict(err) {
 			l.Info(err.Error())
 			return ctrl.Result{Requeue: true}, nil
 		}
-
-		data, err2 := json.MarshalIndent(rc.Connector, "", "  ")
-		if err2 != nil {
-			return ctrl.Result{}, err2
-		}
-
-		l.Info(string(data))
 
 		return ctrl.Result{}, err
 	}

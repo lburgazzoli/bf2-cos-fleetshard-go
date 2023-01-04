@@ -122,7 +122,7 @@ func reify(rc *controller.ReconciliationContext) (kamelv1alpha1.KameletBinding, 
 	_ = setTraitArray(&binding, "mount.configs", []string{
 		"secret:" + bindingSecret.Name,
 		"configmap:" + bindingConfig.Name,
-		"configmap:" + binding.Name + "-deploy",
+		"configmap:" + rc.ConfigMap.Name,
 	})
 
 	if bindingSecret.StringData == nil {
