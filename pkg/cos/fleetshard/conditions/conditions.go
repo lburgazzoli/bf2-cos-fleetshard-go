@@ -95,4 +95,5 @@ func Set(conditions *[]cosv2.Condition, newCondition cosv2.Condition) {
 	existingCondition.Reason = newCondition.Reason
 	existingCondition.Message = newCondition.Message
 	existingCondition.ObservedGeneration = newCondition.ObservedGeneration
+	existingCondition.ResourceRevision = newCondition.ResourceRevision
 }

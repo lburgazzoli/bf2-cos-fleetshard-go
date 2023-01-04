@@ -65,3 +65,5 @@ vendor
 
 #reports dir
 reports/
+
+/etc/examples/my_sink.yaml

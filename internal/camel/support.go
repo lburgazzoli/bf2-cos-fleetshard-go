@@ -106,27 +106,27 @@ func setEndpointProperties(properties map[string]interface{}, config map[string]
 	}
 }
 
-func setTrait(target *kamelv1lapha1.KameletBinding, key string, vals ...string) error {
-	if len(vals) == 0 {
-		return nil
-	}
-
+func setTrait(target *kamelv1lapha1.KameletBinding, key string, val string) error {
 	if !strings.HasPrefix(TraitGroup+"/", key) {
 		key = TraitGroup + "/" + key
 	}
 
-	if len(vals) == 1 {
-		resources.SetAnnotation(&target.ObjectMeta, key, vals[0])
-	} else {
-		data, err := json.Marshal(vals)
-		if err != nil {
-			return err
-		}
-
-		resources.SetAnnotation(&target.ObjectMeta, key, string(data))
-	}
+	resources.SetAnnotation(&target.ObjectMeta, key, val)
 
 	return nil
+}
+
+func setTraitArray(target *kamelv1lapha1.KameletBinding, key string, vals []string) error {
+	if len(vals) == 0 {
+		return nil
+	}
+
+	data, err := json.Marshal(vals)
+	if err != nil {
+		return err
+	}
+
+	return setTrait(target, key, string(data))
 }
 
 func computeTraitsDigest(resource kamelv1lapha1.KameletBinding) (string, error) {
@@ -182,19 +182,25 @@ func extractConditions(conditions *[]cosv2.Condition, binding kamelv1lapha1.Kame
 	for i := range binding.Status.Conditions {
 		c := binding.Status.Conditions[i]
 
-		conditions2.Set(conditions, cosv2.Condition{
+		wc := cosv2.Condition{
 			Condition: metav1.Condition{
 				Type:               "Workload" + string(c.Type),
 				Status:             metav1.ConditionStatus(c.Status),
 				LastTransitionTime: c.LastTransitionTime,
 				Reason:             c.Reason,
 				Message:            c.Message,
-
-				// use ObservedGeneration to reference the deployment revision the
-				// condition is about
-				ObservedGeneration: gen,
 			},
-		})
+			ResourceRevision: gen,
+		}
+
+		if len(wc.Reason) == 0 {
+			wc.Reason = "Unknown"
+		}
+		if len(wc.Message) == 0 {
+			wc.Message = "Unknown"
+		}
+
+		conditions2.Set(conditions, wc)
 	}
 
 	if len(binding.Status.Conditions) == 0 {
@@ -204,11 +210,8 @@ func extractConditions(conditions *[]cosv2.Condition, binding kamelv1lapha1.Kame
 				Status:  metav1.ConditionFalse,
 				Reason:  "Unknown",
 				Message: "Unknown",
-
-				// use ObservedGeneration to reference the deployment revision the
-				// condition is about
-				ObservedGeneration: gen,
 			},
+			ResourceRevision: gen,
 		})
 	}
 

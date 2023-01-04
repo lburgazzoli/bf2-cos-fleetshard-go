@@ -25,7 +25,7 @@ type ReconciliationContext struct {
 	ConfigMap *corev1.ConfigMap
 }
 
-func (rc *ReconciliationContext) PatchDependant(source client.Object, target client.Object) error {
+func (rc *ReconciliationContext) PatchDependant(source client.Object, target client.Object) (bool, error) {
 	if target.GetAnnotations() == nil {
 		target.SetAnnotations(make(map[string]string))
 	}
@@ -37,10 +37,18 @@ func (rc *ReconciliationContext) PatchDependant(source client.Object, target cli
 }
 
 func (rc *ReconciliationContext) GetDependant(obj client.Object, opts ...client.GetOption) error {
-	err := rc.Client.Get(rc.C, rc.NamespacedName, obj, opts...)
+	nn := rc.NamespacedName
+	if obj.GetNamespace() != "" {
+		nn.Namespace = obj.GetNamespace()
+	}
+	if obj.GetName() != "" {
+		nn.Name = obj.GetName()
+	}
+
+	err := rc.Client.Get(rc.C, nn, obj, opts...)
 	if k8serrors.IsNotFound(err) {
-		obj.SetName(rc.NamespacedName.Name)
-		obj.SetNamespace(rc.NamespacedName.Namespace)
+		obj.SetName(nn.Name)
+		obj.SetNamespace(nn.Namespace)
 
 		return nil
 	}

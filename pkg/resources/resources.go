@@ -25,26 +25,26 @@ func Apply(
 	c client.Client,
 	source client.Object,
 	target client.Object,
-) error {
+) (bool, error) {
 	err := c.Create(ctx, target)
 	if err == nil {
-		return nil
+		return false, nil
 	}
 	if !errors.IsAlreadyExists(err) {
-		return errors2.Wrapf(err, "error during create resource: %s/%s", target.GetNamespace(), target.GetName())
+		return false, errors2.Wrapf(err, "error during create resource: %s/%s", target.GetNamespace(), target.GetName())
 	}
 
 	// TODO: server side apply
 	data, err := patch.MergePatch(source, target)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if len(data) == 0 {
-		return nil
+		return false, nil
 	}
 
-	return c.Patch(ctx, source, client.RawPatch(types.MergePatchType, data))
+	return true, c.Patch(ctx, source, client.RawPatch(types.MergePatchType, data))
 }
 
 func PatchStatus(
@@ -52,16 +52,16 @@ func PatchStatus(
 	c client.Client,
 	source client.Object,
 	target client.Object,
-) error {
+) (bool, error) {
 	// TODO: server side apply
 	data, err := patch.MergePatch(source, target)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if len(data) == 0 {
-		return nil
+		return false, nil
 	}
 
-	return c.Status().Patch(ctx, source, client.RawPatch(types.MergePatchType, data))
+	return true, c.Status().Patch(ctx, source, client.RawPatch(types.MergePatchType, data))
 }

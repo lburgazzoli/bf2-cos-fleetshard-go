@@ -16,9 +16,24 @@ import (
 
 func Apply(rc controller.ReconciliationContext) error {
 
-	var binding kamelv1alpha1.KameletBinding
-	var bindingSecret corev1.Secret
-	var bindingConfig corev1.ConfigMap
+	binding := kamelv1alpha1.KameletBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      rc.Connector.Name,
+			Namespace: rc.Connector.Namespace,
+		},
+	}
+	bindingSecret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      rc.Connector.Name + "-secret",
+			Namespace: rc.Connector.Namespace,
+		},
+	}
+	bindingConfig := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      rc.Connector.Name + "-config",
+			Namespace: rc.Connector.Namespace,
+		},
+	}
 
 	if err := rc.GetDependant(&binding); err != nil {
 		return errors.Wrap(err, "failure loading dependant KameletBinding")
@@ -55,21 +70,21 @@ func Apply(rc controller.ReconciliationContext) error {
 		if err := controllerutil.SetControllerReference(rc.Connector, &bs, rc.M.GetScheme()); err != nil {
 			return errors.Wrap(err, "unable to set binding secret controller reference")
 		}
-		if err := rc.PatchDependant(&bindingSecret, &bs); err != nil {
+		if _, err := rc.PatchDependant(&bindingSecret, &bs); err != nil {
 			return errors.Wrap(err, "unable to patch binding secret")
 		}
 
 		if err := controllerutil.SetControllerReference(rc.Connector, &bc, rc.M.GetScheme()); err != nil {
 			return errors.Wrap(err, "unable to set binding config controller reference")
 		}
-		if err := rc.PatchDependant(&bindingConfig, &bc); err != nil {
+		if _, err := rc.PatchDependant(&bindingConfig, &bc); err != nil {
 			return errors.Wrap(err, "unable to patch binding config")
 		}
 
 		if err := controllerutil.SetControllerReference(rc.Connector, &b, rc.M.GetScheme()); err != nil {
 			return errors.Wrap(err, "unable to set binding config controller reference")
 		}
-		if err := rc.PatchDependant(&binding, &b); err != nil {
+		if _, err := rc.PatchDependant(&binding, &b); err != nil {
 			return errors.Wrap(err, "unable to patch binding")
 		}
 
@@ -77,6 +92,7 @@ func Apply(rc controller.ReconciliationContext) error {
 			condition.Status = metav1.ConditionTrue
 			condition.Reason = conditions.ConditionReasonProvisioned
 			condition.Message = conditions.ConditionMessageProvisioned
+			condition.ResourceRevision = rc.Connector.Spec.Deployment.DeploymentResourceVersion
 		})
 
 		rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
@@ -85,6 +101,7 @@ func Apply(rc controller.ReconciliationContext) error {
 			condition.Status = metav1.ConditionFalse
 			condition.Reason = conditions.ConditionReasonStopping
 			condition.Message = conditions.ConditionMessageStopping
+			condition.ResourceRevision = rc.Connector.Spec.Deployment.DeploymentResourceVersion
 		})
 
 		deleted := 0
@@ -104,6 +121,7 @@ func Apply(rc controller.ReconciliationContext) error {
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = conditions.ConditionReasonStopped
 				condition.Message = conditions.ConditionMessageStopped
+				condition.ResourceRevision = rc.Connector.Spec.Deployment.DeploymentResourceVersion
 			})
 
 			rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
@@ -113,6 +131,7 @@ func Apply(rc controller.ReconciliationContext) error {
 			condition.Status = metav1.ConditionFalse
 			condition.Reason = conditions.ConditionReasonDeleting
 			condition.Message = conditions.ConditionMessageDeleting
+			condition.ResourceRevision = rc.Connector.Spec.Deployment.DeploymentResourceVersion
 		})
 
 		deleted := 0
@@ -132,10 +151,15 @@ func Apply(rc controller.ReconciliationContext) error {
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = conditions.ConditionReasonDeleted
 				condition.Message = conditions.ConditionMessageDeleted
+				condition.ResourceRevision = rc.Connector.Spec.Deployment.DeploymentResourceVersion
 			})
 
 			rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
 		}
+	}
+
+	for i := range rc.Connector.Status.Conditions {
+		rc.Connector.Status.Conditions[i].ObservedGeneration = rc.Connector.Status.ObservedGeneration
 	}
 
 	return nil

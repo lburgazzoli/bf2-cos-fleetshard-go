@@ -37,13 +37,13 @@ func reify(rc *controller.ReconciliationContext) (kamelv1alpha1.KameletBinding, 
 	}
 	bindingSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      rc.Connector.Name,
+			Name:      rc.Connector.Name + "-secret",
 			Namespace: rc.Connector.Namespace,
 		},
 	}
 	bindingConfig := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      rc.Connector.Name,
+			Name:      rc.Connector.Name + "-config",
 			Namespace: rc.Connector.Namespace,
 		},
 	}
@@ -97,17 +97,6 @@ func reify(rc *controller.ReconciliationContext) (kamelv1alpha1.KameletBinding, 
 	_ = setTrait(&binding, "deployment.enabled", "true")
 	_ = setTrait(&binding, "deployment.strategy", "Recreate")
 
-	_ = setTrait(&binding,
-		"owner.target-labels",
-		cosmeta.MetaOperatorType,
-		cosmeta.MetaDeploymentID,
-		cosmeta.MetaConnectorID,
-		cosmeta.MetaConnectorTypeID)
-
-	_ = setTrait(&binding,
-		"owner.target-annotations",
-		"")
-
 	// TODO: must be configurable
 	_ = setTrait(&binding, "health.readiness-success-threshold", "1")
 	_ = setTrait(&binding, "health.readiness-failure-threshold", "3")
@@ -117,6 +106,24 @@ func reify(rc *controller.ReconciliationContext) (kamelv1alpha1.KameletBinding, 
 	_ = setTrait(&binding, "health.liveness-failure-threshold", "3")
 	_ = setTrait(&binding, "health.liveness-period", "10")
 	_ = setTrait(&binding, "health.liveness-timeout", "1")
+
+	// multi args
+	_ = setTraitArray(&binding, "owner.target-labels", []string{
+		cosmeta.MetaOperatorType,
+		cosmeta.MetaDeploymentID,
+		cosmeta.MetaConnectorID,
+		cosmeta.MetaConnectorTypeID,
+	})
+
+	_ = setTraitArray(&binding,
+		"owner.target-annotations",
+		[]string{})
+
+	_ = setTraitArray(&binding, "mount.configs", []string{
+		"secret:" + bindingSecret.Name,
+		"configmap:" + bindingConfig.Name,
+		"configmap:" + binding.Name + "-deploy",
+	})
 
 	if bindingSecret.StringData == nil {
 		bindingSecret.StringData = make(map[string]string)
