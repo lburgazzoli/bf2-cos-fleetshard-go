@@ -9,9 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func Apply(rc controller.ReconciliationContext) error {
@@ -67,25 +65,14 @@ func Apply(rc controller.ReconciliationContext) error {
 			return err
 		}
 
-		if err := controllerutil.SetControllerReference(rc.Connector, &bs, rc.M.GetScheme()); err != nil {
-			return errors.Wrap(err, "unable to set binding secret controller reference")
+		if err := patchDependant(rc, &bindingSecret, &bs); err != nil {
+			return errors.Wrap(err, "unable to reconcile binding secrete")
 		}
-		if _, err := rc.PatchDependant(&bindingSecret, &bs); err != nil {
-			return errors.Wrap(err, "unable to patch binding secret")
+		if err := patchDependant(rc, &bindingConfig, &bc); err != nil {
+			return errors.Wrap(err, "unable to reconcile binding config")
 		}
-
-		if err := controllerutil.SetControllerReference(rc.Connector, &bc, rc.M.GetScheme()); err != nil {
-			return errors.Wrap(err, "unable to set binding config controller reference")
-		}
-		if _, err := rc.PatchDependant(&bindingConfig, &bc); err != nil {
-			return errors.Wrap(err, "unable to patch binding config")
-		}
-
-		if err := controllerutil.SetControllerReference(rc.Connector, &b, rc.M.GetScheme()); err != nil {
-			return errors.Wrap(err, "unable to set binding config controller reference")
-		}
-		if _, err := rc.PatchDependant(&binding, &b); err != nil {
-			return errors.Wrap(err, "unable to patch binding")
+		if err := patchDependant(rc, &binding, &b); err != nil {
+			return errors.Wrap(err, "unable to reconcile binding")
 		}
 
 		conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeReady, func(condition *cos.Condition) {

@@ -6,10 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	cosv2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
 	conditions2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/conditions"
 	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sort"
 	"strconv"
 	"strings"
@@ -212,6 +216,27 @@ func extractConditions(conditions *[]cosv2.Condition, binding kamelv1lapha1.Kame
 				Message: "Unknown",
 			},
 			ResourceRevision: gen,
+		})
+	}
+
+	return nil
+}
+
+func patchDependant(rc controller.ReconciliationContext, source client.Object, target client.Object) error {
+
+	if err := controllerutil.SetControllerReference(rc.Connector, target, rc.M.GetScheme()); err != nil {
+		return errors.Wrapf(err, "unable to set binding config controller to: %s", target.GetObjectKind().GroupVersionKind().String())
+	}
+
+	ok, err := rc.PatchDependant(source, target)
+	if err != nil {
+		return errors.Wrapf(err, "unable to patch %s", target.GetObjectKind().GroupVersionKind().String())
+	}
+	if ok {
+		patchDependantCount.With(prometheus.Labels{
+			"connector_id":   rc.Connector.Spec.ConnectorID,
+			"dependant_name": target.GetName(),
+			"dependant_kind": target.GetObjectKind().GroupVersionKind().String(),
 		})
 	}
 

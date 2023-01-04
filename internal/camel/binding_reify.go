@@ -88,7 +88,6 @@ func reify(rc *controller.ReconciliationContext) (kamelv1alpha1.KameletBinding, 
 	_ = setTrait(&binding, "container.image", meta.ConnectorImage)
 	_ = setTrait(&binding, "kamelets.enabled", "false")
 	_ = setTrait(&binding, "jvm.enabled", "false")
-	_ = setTrait(&binding, "logging.json", "false")
 	_ = setTrait(&binding, "prometheus.enabled", "true")
 	_ = setTrait(&binding, "prometheus.pod-monitor", "false")
 	_ = setTrait(&binding, "health.enabled", "true")
@@ -96,6 +95,10 @@ func reify(rc *controller.ReconciliationContext) (kamelv1alpha1.KameletBinding, 
 	_ = setTrait(&binding, "health.liveness-probe-enabled", "true")
 	_ = setTrait(&binding, "deployment.enabled", "true")
 	_ = setTrait(&binding, "deployment.strategy", "Recreate")
+
+	// TODO: must be configurable
+	_ = setTrait(&binding, "logging.json", "false")
+	_ = setTrait(&binding, "logging.color", "false")
 
 	// TODO: must be configurable
 	_ = setTrait(&binding, "health.readiness-success-threshold", "1")
