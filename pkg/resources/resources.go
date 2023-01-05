@@ -72,3 +72,7 @@ func AsNamespacedName(obj client.Object) types.NamespacedName {
 		Name:      obj.GetName(),
 	}
 }
+
+func Get(ctx context.Context, c client.Reader, target client.Object, opts ...client.GetOption) error {
+	return c.Get(ctx, AsNamespacedName(target), target, opts...)
+}

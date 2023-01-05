@@ -198,13 +198,13 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		},
 	}
 
-	if err := r.Get(ctx, types.NamespacedName{Name: rc.Connector.Name, Namespace: rc.Connector.Namespace}, rc.Connector); err != nil {
+	if err := resources.Get(ctx, r, rc.Connector); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	if err := r.Get(ctx, types.NamespacedName{Name: rc.Secret.Name, Namespace: rc.Secret.Namespace}, rc.Secret); err != nil {
+	if err := resources.Get(ctx, r, rc.Secret); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	if err := r.Get(ctx, types.NamespacedName{Name: rc.ConfigMap.Name, Namespace: rc.ConfigMap.Namespace}, rc.ConfigMap); err != nil {
+	if err := resources.Get(ctx, r, rc.ConfigMap); err != nil {
 		if k8serrors.IsNotFound(err) {
 			if err := r.Create(ctx, rc.ConfigMap); err != nil {
 				return ctrl.Result{}, err
