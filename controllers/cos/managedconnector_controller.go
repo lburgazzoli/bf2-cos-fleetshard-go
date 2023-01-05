@@ -1,48 +1,24 @@
-/*
-Copyright 2022.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package cos
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sort"
 	"time"
 
 	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/predicates"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 // ManagedConnectorReconciler reconciles a ManagedConnector object
@@ -63,100 +39,7 @@ func NewManagedConnectorReconciler(mgr manager.Manager, options controller.Optio
 		l:       log.Log.WithName("reconciler"),
 	}
 
-	return r, r.Initialize(mgr)
-}
-
-func (r *ManagedConnectorReconciler) Initialize(mgr ctrl.Manager) error {
-	operatorTypeSelector, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			cosmeta.MetaOperatorType: r.options.Type,
-		},
-	})
-	if err != nil {
-		return errors.Wrapf(err, "unable to confiure operator-type label selector")
-	}
-
-	// TODO: refactor
-	c := ctrl.NewControllerManagedBy(mgr).
-		Named("ManagedConnectorController").
-		For(&cos.ManagedConnector{}, builder.WithPredicates(
-			predicate.And(
-				operatorTypeSelector,
-				predicate.Or(
-					predicate.GenerationChangedPredicate{},
-					predicate.AnnotationChangedPredicate{},
-					predicate.LabelChangedPredicate{},
-				)))).
-		Watches(
-			&source.Kind{Type: &corev1.Secret{}},
-			&handler.EnqueueRequestForOwner{OwnerType: &cos.ManagedConnector{}},
-			builder.WithPredicates(
-				predicate.And(
-					operatorTypeSelector,
-					predicate.Or(
-						predicate.ResourceVersionChangedPredicate{},
-						predicate.AnnotationChangedPredicate{},
-						predicate.LabelChangedPredicate{},
-					)))).
-		Watches(
-			&source.Kind{Type: &cos.ManagedConnectorOperator{}},
-			handler.EnqueueRequestsFromMapFunc(func(a client.Object) []reconcile.Request {
-				requests := make([]reconcile.Request, 0)
-
-				mco, ok := a.(*cos.ManagedConnectorOperator)
-				if !ok {
-					r.l.Error(fmt.Errorf("type assertion failed: %v", a), "failed to retrieve ManagedConnectorOperator list")
-					return requests
-				}
-
-				if mco.GetName() != r.options.ID {
-					r.l.Info(
-						"skip event for",
-						"operator-id", mco.GetName())
-
-					return requests
-				}
-
-				list := &cos.ManagedConnectorList{}
-
-				opts := []client.ListOption{
-					client.MatchingLabels{
-						cosmeta.MetaOperatorType: r.options.Type,
-					},
-					client.MatchingFields{
-						"status.operatorId": r.options.ID,
-					},
-				}
-
-				if err := mgr.GetClient().List(context.Background(), list, opts...); err != nil {
-					r.l.Error(err, "failed to retrieve ManagedConnectorOperator list")
-					return requests
-				}
-
-				for i := range list.Items {
-					requests = append(requests, reconcile.Request{
-						NamespacedName: resources.AsNamespacedName(&list.Items[i]),
-					})
-				}
-
-				return requests
-			}),
-			builder.WithPredicates(
-				predicate.And(
-					operatorTypeSelector,
-					predicate.Or(
-						predicate.GenerationChangedPredicate{},
-					))))
-
-	for i := range r.options.Reconciler.Owned {
-		c.Owns(
-			r.options.Reconciler.Owned[i],
-			// TODO: add label selection
-			// predicate.LabelSelectorPredicate(),
-			builder.WithPredicates(predicates.StatusChanged{}))
-	}
-
-	return c.Complete(r)
+	return r, r.initialize(mgr)
 }
 
 //+kubebuilder:rbac:groups=cos.bf2.dev,resources=managedconnectors,verbs=get;list;watch;create;update;patch;delete
