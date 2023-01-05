@@ -66,7 +66,7 @@ build: manifests generate fmt vet ## Build manager binary.
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run main.go run --operator-id foo --operator-group cos.bf2.dev --operator-type camel --operator-version 2
+	go run main.go camel run --operator-id foo --operator-group cos.bf2.dev --operator-type camel --operator-version 2
 
 ##@ Deployment
 
