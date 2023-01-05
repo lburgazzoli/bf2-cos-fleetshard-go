@@ -60,8 +60,21 @@ func (rc *ReconciliationContext) DeleteDependant(obj client.Object, opts ...clie
 	return rc.Client.Delete(rc.C, obj, opts...)
 }
 
-// Controller ---
-type Controller struct {
+// Reconciler ---
+type Reconciler struct {
 	Owned     []client.Object
 	ApplyFunc func(ReconciliationContext) error
+}
+
+// Options ---
+type Options struct {
+	ID                            string
+	Group                         string
+	Type                          string
+	Version                       string
+	MetricsAddr                   string
+	ProbeAddr                     string
+	EnableLeaderElection          bool
+	ReleaseLeaderElectionOnCancel bool
+	Reconciler                    Reconciler
 }

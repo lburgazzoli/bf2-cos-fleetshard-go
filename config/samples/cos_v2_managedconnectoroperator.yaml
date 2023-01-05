@@ -1,0 +1,12 @@
+apiVersion: cos.bf2.dev/v2
+kind: ManagedConnectorOperator
+metadata:
+  labels:
+    app.kubernetes.io/name: managedconnectoroperator
+    app.kubernetes.io/instance: managedconnectoroperator-sample
+    app.kubernetes.io/part-of: bf2-cos-fleetshard-go
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: bf2-cos-fleetshard-go
+  name: managedconnectoroperator-sample
+spec:
+  # TODO(user): Add fields here

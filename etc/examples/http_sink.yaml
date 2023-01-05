@@ -4,6 +4,7 @@ kind: ManagedConnector
 metadata:
   labels:
     cos.bf2.dev/uow: '9bsv0s3l50qg02oqvlqg'
+    cos.bf2.dev/operator.type: 'camel'
   name: 'mctr-http-sink'
 spec:
   clusterId: '9bsv0s50ce1g02v21usg'
@@ -25,6 +26,7 @@ type: Opaque
 metadata:
   labels:
     cos.bf2.dev/uow: '9bsv0s3l50qg02oqvlqg'
+    cos.bf2.dev/operator.type: 'camel'
   name: 'mctr-http-sink-deploy'
   ownerReferences:
     - apiVersion: cos.bf2.dev/v2

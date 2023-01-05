@@ -62,11 +62,11 @@ test: manifests generate fmt vet envtest ## Run tests.
 
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/fleetshard-camel cmd/fleetshard/camel/main.go
+	go build -o bin/fleetshard main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./cmd/fleetshard/camel/main.go
+	go run main.go run --operator-id foo --operator-group cos.bf2.dev --operator-type camel --operator-version 2
 
 ##@ Deployment
 

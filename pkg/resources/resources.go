@@ -5,12 +5,12 @@ import (
 	errors2 "github.com/pkg/errors"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/patch"
 	"k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func SetAnnotation(target *v1.ObjectMeta, key string, val string) {
+func SetAnnotation(target *metav1.ObjectMeta, key string, val string) {
 	if target.Annotations == nil {
 		target.Annotations = make(map[string]string)
 	}
@@ -64,4 +64,11 @@ func PatchStatus(
 	}
 
 	return true, c.Status().Patch(ctx, source, client.RawPatch(types.MergePatchType, data))
+}
+
+func AsNamespacedName(obj client.Object) types.NamespacedName {
+	return types.NamespacedName{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
 }

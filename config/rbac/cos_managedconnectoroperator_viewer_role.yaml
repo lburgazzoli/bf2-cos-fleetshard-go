@@ -1,0 +1,27 @@
+# permissions for end users to view managedconnectoroperators.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: managedconnectoroperator-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: bf2-cos-fleetshard-go
+    app.kubernetes.io/part-of: bf2-cos-fleetshard-go
+    app.kubernetes.io/managed-by: kustomize
+  name: managedconnectoroperator-viewer-role
+rules:
+- apiGroups:
+  - cos.bf2.dev
+  resources:
+  - managedconnectoroperators
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cos.bf2.dev
+  resources:
+  - managedconnectoroperators/status
+  verbs:
+  - get

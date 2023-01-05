@@ -14,4 +14,12 @@ resources:
   kind: ManagedConnector
   path: gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2
   version: v2
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: bf2.dev
+  group: cos
+  kind: ManagedConnectorOperator
+  path: gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2
+  version: v2
 version: "3"

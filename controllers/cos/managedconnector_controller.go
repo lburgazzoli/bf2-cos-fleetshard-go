@@ -18,15 +18,20 @@ package cos
 
 import (
 	"context"
+	"fmt"
+	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
-	meta2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sort"
 	"time"
 
 	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
+	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/predicates"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -43,48 +48,109 @@ import (
 // ManagedConnectorReconciler reconciles a ManagedConnector object
 type ManagedConnectorReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	mgr    manager.Manager
-	ctrl   controller.Controller
+	Scheme  *runtime.Scheme
+	mgr     manager.Manager
+	options controller.Options
+	l       logr.Logger
 }
 
-func NewManagedConnectorReconciler(mgr manager.Manager, ctrl controller.Controller) (*ManagedConnectorReconciler, error) {
+func NewManagedConnectorReconciler(mgr manager.Manager, options controller.Options) (*ManagedConnectorReconciler, error) {
 	r := &ManagedConnectorReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		mgr:    mgr,
-		ctrl:   ctrl,
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		mgr:     mgr,
+		options: options,
+		l:       log.Log.WithName("reconciler"),
 	}
 
 	return r, r.Initialize(mgr)
 }
 
 func (r *ManagedConnectorReconciler) Initialize(mgr ctrl.Manager) error {
+	operatorTypeSelector, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			cosmeta.MetaOperatorType: r.options.Type,
+		},
+	})
+	if err != nil {
+		return errors.Wrapf(err, "unable to confiure operator-type label selector")
+	}
+
+	// TODO: refactor
 	c := ctrl.NewControllerManagedBy(mgr).
 		Named("ManagedConnectorController").
 		For(&cos.ManagedConnector{}, builder.WithPredicates(
-			predicate.Or(
-				// TODO: add label selection
-				// predicate.LabelSelectorPredicate(),
-				predicate.GenerationChangedPredicate{},
-				predicate.AnnotationChangedPredicate{},
-				predicate.LabelChangedPredicate{},
-			))).
+			predicate.And(
+				operatorTypeSelector,
+				predicate.Or(
+					predicate.GenerationChangedPredicate{},
+					predicate.AnnotationChangedPredicate{},
+					predicate.LabelChangedPredicate{},
+				)))).
 		Watches(
 			&source.Kind{Type: &corev1.Secret{}},
 			&handler.EnqueueRequestForOwner{OwnerType: &cos.ManagedConnector{}},
 			builder.WithPredicates(
-				predicate.Or(
-					// TODO: add label selection
-					// predicate.LabelSelectorPredicate(),
-					predicate.ResourceVersionChangedPredicate{},
-					predicate.AnnotationChangedPredicate{},
-					predicate.LabelChangedPredicate{},
-				)))
+				predicate.And(
+					operatorTypeSelector,
+					predicate.Or(
+						predicate.ResourceVersionChangedPredicate{},
+						predicate.AnnotationChangedPredicate{},
+						predicate.LabelChangedPredicate{},
+					)))).
+		Watches(
+			&source.Kind{Type: &cos.ManagedConnectorOperator{}},
+			handler.EnqueueRequestsFromMapFunc(func(a client.Object) []reconcile.Request {
+				requests := make([]reconcile.Request, 0)
 
-	for i := range r.ctrl.Owned {
+				mco, ok := a.(*cos.ManagedConnectorOperator)
+				if !ok {
+					r.l.Error(fmt.Errorf("type assertion failed: %v", a), "failed to retrieve ManagedConnectorOperator list")
+					return requests
+				}
+
+				if mco.GetName() != r.options.ID {
+					r.l.Info(
+						"skip event for",
+						"operator-id", mco.GetName())
+
+					return requests
+				}
+
+				list := &cos.ManagedConnectorList{}
+
+				opts := []client.ListOption{
+					client.MatchingLabels{
+						cosmeta.MetaOperatorType: r.options.Type,
+					},
+					client.MatchingFields{
+						"status.operatorId": r.options.ID,
+					},
+				}
+
+				if err := mgr.GetClient().List(context.Background(), list, opts...); err != nil {
+					r.l.Error(err, "failed to retrieve ManagedConnectorOperator list")
+					return requests
+				}
+
+				for i := range list.Items {
+					requests = append(requests, reconcile.Request{
+						NamespacedName: resources.AsNamespacedName(&list.Items[i]),
+					})
+				}
+
+				return requests
+			}),
+			builder.WithPredicates(
+				predicate.And(
+					operatorTypeSelector,
+					predicate.Or(
+						predicate.GenerationChangedPredicate{},
+					))))
+
+	for i := range r.options.Reconciler.Owned {
 		c.Owns(
-			r.ctrl.Owned[i],
+			r.options.Reconciler.Owned[i],
 			// TODO: add label selection
 			// predicate.LabelSelectorPredicate(),
 			builder.WithPredicates(predicates.StatusChanged{}))
@@ -151,7 +217,7 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// ignore notification for resources not with the same UOW.
 	// schedule a new reconcile event after a second.
 
-	if rc.Connector.Annotations[meta2.MetaUnitOfWork] != rc.Secret.Annotations[meta2.MetaUnitOfWork] {
+	if rc.Connector.Annotations[cosmeta.MetaUnitOfWork] != rc.Secret.Annotations[cosmeta.MetaUnitOfWork] {
 		return ctrl.Result{
 			RequeueAfter: 1 * time.Second,
 		}, nil
@@ -168,7 +234,7 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	rc.Secret = rc.Secret.DeepCopy()
 	rc.ConfigMap = rc.ConfigMap.DeepCopy()
 
-	if err := r.ctrl.ApplyFunc(rc); err != nil {
+	if err := r.options.Reconciler.ApplyFunc(rc); err != nil {
 		return ctrl.Result{}, err
 	}
 
