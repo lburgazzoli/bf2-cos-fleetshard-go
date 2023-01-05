@@ -110,27 +110,34 @@ func setEndpointProperties(properties map[string]interface{}, config map[string]
 	}
 }
 
-func setTrait(target *kamelv1lapha1.KameletBinding, key string, val string) error {
+type TraitVal interface {
+	string | []string
+}
+
+func setTrait[T TraitVal](target *kamelv1lapha1.KameletBinding, key string, val T) error {
 	if !strings.HasPrefix(TraitGroup+"/", key) {
 		key = TraitGroup + "/" + key
 	}
 
-	resources.SetAnnotation(&target.ObjectMeta, key, val)
+	switch v := any(val).(type) {
+	case string:
+		resources.SetAnnotation(&target.ObjectMeta, key, v)
+	case []string:
+		if len(v) == 0 {
+			return nil
+		}
 
-	return nil
-}
+		data, err := json.Marshal(v)
+		if err != nil {
+			return err
+		}
 
-func setTraitArray(target *kamelv1lapha1.KameletBinding, key string, vals []string) error {
-	if len(vals) == 0 {
+		resources.SetAnnotation(&target.ObjectMeta, key, string(data))
+	default:
 		return nil
 	}
 
-	data, err := json.Marshal(vals)
-	if err != nil {
-		return err
-	}
-
-	return setTrait(target, key, string(data))
+	return nil
 }
 
 func computeTraitsDigest(resource kamelv1lapha1.KameletBinding) (string, error) {

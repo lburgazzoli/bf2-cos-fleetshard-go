@@ -3,11 +3,12 @@ package run
 import (
 	camelv1 "github.com/apache/camel-k/pkg/apis/camel/v1"
 	camelv1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
-	"github.com/spf13/cobra"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/internal/camel"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard"
 
+	"github.com/spf13/cobra"
+
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/internal/camel"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 

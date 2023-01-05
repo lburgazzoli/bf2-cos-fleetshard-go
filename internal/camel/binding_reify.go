@@ -111,18 +111,18 @@ func reify(rc *controller.ReconciliationContext) (kamelv1alpha1.KameletBinding, 
 	_ = setTrait(&binding, "health.liveness-timeout", "1")
 
 	// multi args
-	_ = setTraitArray(&binding, "owner.target-labels", []string{
+	_ = setTrait(&binding, "owner.target-labels", []string{
 		cosmeta.MetaOperatorType,
 		cosmeta.MetaDeploymentID,
 		cosmeta.MetaConnectorID,
 		cosmeta.MetaConnectorTypeID,
 	})
 
-	_ = setTraitArray(&binding,
+	_ = setTrait(&binding,
 		"owner.target-annotations",
 		[]string{})
 
-	_ = setTraitArray(&binding, "mount.configs", []string{
+	_ = setTrait(&binding, "mount.configs", []string{
 		"secret:" + bindingSecret.Name,
 		"configmap:" + bindingConfig.Name,
 		"configmap:" + rc.ConfigMap.Name,
