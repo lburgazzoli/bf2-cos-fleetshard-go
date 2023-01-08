@@ -9,7 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	cosv2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
-	conditions2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/conditions"
+	cosconditions "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/conditions"
 	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -176,7 +176,7 @@ func computeTraitsDigest(resource kamelv1lapha1.KameletBinding) (string, error) 
 	return base64.StdEncoding.EncodeToString(hash.Sum(nil)), nil
 }
 
-func extractConditions(conditions *[]cosv2.Condition, binding kamelv1lapha1.KameletBinding) error {
+func extractDependantConditions(conditions *[]cosv2.Condition, binding kamelv1lapha1.KameletBinding) error {
 
 	var gen int64
 	var err error
@@ -189,13 +189,16 @@ func extractConditions(conditions *[]cosv2.Condition, binding kamelv1lapha1.Kame
 		}
 	}
 
-	// TODO: conditions must be filtered out
 	for i := range binding.Status.Conditions {
 		c := binding.Status.Conditions[i]
 
+		if string(c.Type) != cosconditions.ConditionTypeReady {
+			continue
+		}
+
 		wc := cosv2.Condition{
 			Condition: metav1.Condition{
-				Type:               "Workload" + string(c.Type),
+				Type:               cosconditions.ConditionTypeReady,
 				Status:             metav1.ConditionStatus(c.Status),
 				LastTransitionTime: c.LastTransitionTime,
 				Reason:             c.Reason,
@@ -205,25 +208,13 @@ func extractConditions(conditions *[]cosv2.Condition, binding kamelv1lapha1.Kame
 		}
 
 		if len(wc.Reason) == 0 {
-			wc.Reason = "Unknown"
+			wc.Reason = cosconditions.ConditionReasonUnknown
 		}
 		if len(wc.Message) == 0 {
-			wc.Message = "Unknown"
+			wc.Message = cosconditions.ConditionReasonUnknown
 		}
 
-		conditions2.Set(conditions, wc)
-	}
-
-	if len(binding.Status.Conditions) == 0 {
-		conditions2.Set(conditions, cosv2.Condition{
-			Condition: metav1.Condition{
-				Type:    "WorkloadReady",
-				Status:  metav1.ConditionFalse,
-				Reason:  "Unknown",
-				Message: "Unknown",
-			},
-			ResourceRevision: gen,
-		})
+		cosconditions.Set(conditions, wc)
 	}
 
 	return nil
@@ -232,7 +223,7 @@ func extractConditions(conditions *[]cosv2.Condition, binding kamelv1lapha1.Kame
 func patchDependant(rc controller.ReconciliationContext, source client.Object, target client.Object) error {
 
 	if err := controllerutil.SetControllerReference(rc.Connector, target, rc.M.GetScheme()); err != nil {
-		return errors.Wrapf(err, "unable to set binding config controller to: %s", target.GetObjectKind().GroupVersionKind().String())
+		return errors.Wrapf(err, "unable to set controller reference to: %s", target.GetObjectKind().GroupVersionKind().String())
 	}
 
 	ok, err := rc.PatchDependant(source, target)
@@ -244,7 +235,7 @@ func patchDependant(rc controller.ReconciliationContext, source client.Object, t
 			"connector_id":   rc.Connector.Spec.ConnectorID,
 			"dependant_name": target.GetName(),
 			"dependant_kind": target.GetObjectKind().GroupVersionKind().String(),
-		})
+		}).Add(1)
 	}
 
 	return nil

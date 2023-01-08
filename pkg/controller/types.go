@@ -63,7 +63,7 @@ func (rc *ReconciliationContext) DeleteDependant(obj client.Object, opts ...clie
 // Reconciler ---
 type Reconciler struct {
 	Owned     []client.Object
-	ApplyFunc func(ReconciliationContext) error
+	ApplyFunc func(ReconciliationContext) (bool, error)
 }
 
 // Options ---

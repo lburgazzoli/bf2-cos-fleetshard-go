@@ -117,7 +117,7 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	rc.Secret = rc.Secret.DeepCopy()
 	rc.ConfigMap = rc.ConfigMap.DeepCopy()
 
-	if err := r.options.Reconciler.ApplyFunc(rc); err != nil {
+	if update, err := r.options.Reconciler.ApplyFunc(rc); err != nil && !update {
 		return ctrl.Result{}, err
 	}
 

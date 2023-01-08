@@ -7,6 +7,7 @@ import (
 )
 
 const ConditionTypeReady string = "Ready"
+const ConditionTypeProvisioned string = "Provisioned"
 
 const ConditionMessageProvisioned string = "Provisioned"
 const ConditionReasonProvisioning string = "Provisioning"
@@ -22,26 +23,7 @@ const ConditionReasonDeleting string = "Deleting"
 const ConditionMessageUnknown string = "Unknown"
 const ConditionReasonUnknown string = "Unknown"
 const ConditionMessageProvisioning string = "Provisioning"
-
-func Ready(connector cosv2.ManagedConnector) cosv2.Condition {
-	ready := cosv2.Condition{
-		Condition: v1.Condition{
-			Type:               ConditionTypeReady,
-			Status:             v1.ConditionFalse,
-			Reason:             ConditionReasonUnknown,
-			Message:            ConditionMessageUnknown,
-			ObservedGeneration: connector.Status.ObservedGeneration,
-		},
-		ResourceRevision: connector.Spec.Deployment.DeploymentResourceVersion,
-	}
-
-	if connector.Generation != connector.Status.ObservedGeneration {
-		ready.Reason = ConditionMessageProvisioning
-		ready.Message = ConditionReasonProvisioning
-	}
-
-	return ready
-}
+const ConditionReasonError string = "Error"
 
 func Update(conditions *[]cosv2.Condition, conditionType string, consumer func(*cosv2.Condition)) {
 	c := Find(*conditions, conditionType)
@@ -74,10 +56,13 @@ func Set(conditions *[]cosv2.Condition, newCondition cosv2.Condition) {
 	if conditions == nil {
 		return
 	}
+
+	now := v1.NewTime(time.Now())
 	existingCondition := Find(*conditions, newCondition.Type)
+
 	if existingCondition == nil {
 		if newCondition.LastTransitionTime.IsZero() {
-			newCondition.LastTransitionTime = v1.NewTime(time.Now())
+			newCondition.LastTransitionTime = now
 		}
 		*conditions = append(*conditions, newCondition)
 		return
@@ -88,7 +73,7 @@ func Set(conditions *[]cosv2.Condition, newCondition cosv2.Condition) {
 		if !newCondition.LastTransitionTime.IsZero() {
 			existingCondition.LastTransitionTime = newCondition.LastTransitionTime
 		} else {
-			existingCondition.LastTransitionTime = v1.NewTime(time.Now())
+			existingCondition.LastTransitionTime = now
 		}
 	}
 
