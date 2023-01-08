@@ -6,6 +6,7 @@ import (
 )
 
 var (
+	//TODO: this is only for testing/demo purpose
 	patchDependantCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "patch_dependant",
