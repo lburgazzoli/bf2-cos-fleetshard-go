@@ -74,6 +74,7 @@ type Options struct {
 	Version                       string
 	MetricsAddr                   string
 	ProbeAddr                     string
+	ProofAddr                     string
 	EnableLeaderElection          bool
 	ReleaseLeaderElectionOnCancel bool
 	Reconciler                    Reconciler

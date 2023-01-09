@@ -4,10 +4,12 @@ import (
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/controllers/cos"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/logger"
+	"net/http"
 	"os"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	_ "net/http/pprof"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -51,7 +53,7 @@ func Start(options controller.Options) error {
 		LeaderElectionReleaseOnCancel: options.ReleaseLeaderElectionOnCancel,
 	})
 	if err != nil {
-		Log.Error(err, "unable to start manager")
+		Log.Error(err, "unable to create manager")
 		os.Exit(1)
 	}
 
@@ -67,6 +69,15 @@ func Start(options controller.Options) error {
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		Log.Error(err, "unable to set up ready check")
 		return err
+	}
+
+	if options.ProofAddr != "" {
+		Log.Info("starting pprof")
+
+		go func() {
+			err := http.ListenAndServe(options.ProofAddr, nil)
+			Log.Error(err, "pprof")
+		}()
 	}
 
 	Log.Info("starting manager")
