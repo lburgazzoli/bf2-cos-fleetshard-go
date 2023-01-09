@@ -6,9 +6,12 @@ import (
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/logger"
 	"net/http"
 	"os"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+
+	// enable pprof
 	_ "net/http/pprof"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,22 +37,11 @@ func Start(options controller.Options) error {
 	ctx := ctrl.SetupSignalHandler()
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 Scheme,
-		MetricsBindAddress:     options.MetricsAddr,
-		Port:                   9443,
-		HealthProbeBindAddress: options.ProbeAddr,
-		LeaderElection:         options.EnableLeaderElection,
-		LeaderElectionID:       options.ID + "." + options.Group,
-		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
-		// when the Manager ends. This requires the binary to immediately end when the
-		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
-		// speeds up voluntary leader transitions as the new leader don't have to wait
-		// LeaseDuration time first.
-		//
-		// In the default scaffold provided, the program ends immediately after
-		// the manager stops, so would be fine to enable this option. However,
-		// if you are doing or is intended to do any operation such as perform cleanups
-		// after the manager stops then its usage might be unsafe.
+		Scheme:                        Scheme,
+		MetricsBindAddress:            options.MetricsAddr,
+		HealthProbeBindAddress:        options.ProbeAddr,
+		LeaderElection:                options.EnableLeaderElection,
+		LeaderElectionID:              options.ID + "." + options.Group,
 		LeaderElectionReleaseOnCancel: options.ReleaseLeaderElectionOnCancel,
 	})
 	if err != nil {
