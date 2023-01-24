@@ -56,21 +56,12 @@ type TestSuite struct {
 	Mu sync.Mutex
 }
 
-// TestScenario holds that state of single scenario.  It is not accessed
-// concurrently.
+// TestScenario holds that state of single scenario.
+// It is not accessed concurrently.
 type TestScenario struct {
 	Suite           *TestSuite
 	Variables       map[string]interface{}
 	hasTestCaseLock bool
-}
-
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
 }
 
 // StepModules is the list of functions used to add steps to a godog.ScenarioContext, you can
