@@ -67,3 +67,4 @@ vendor
 reports/
 
 /etc/examples/my_sink.yaml
+/etc/examples/cluster.txt

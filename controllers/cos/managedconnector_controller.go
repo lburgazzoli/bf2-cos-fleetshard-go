@@ -36,7 +36,7 @@ func NewManagedConnectorReconciler(mgr manager.Manager, options controller.Optio
 		Scheme:  mgr.GetScheme(),
 		mgr:     mgr,
 		options: options,
-		l:       log.Log.WithName("reconciler"),
+		l:       log.Log.WithName("connector-reconciler"),
 	}
 
 	return r, r.initialize(mgr)

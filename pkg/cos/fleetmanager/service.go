@@ -24,12 +24,23 @@ type Client struct {
 }
 
 func NewClient(ctx context.Context, config *Config) (*Client, error) {
+	t := logger.LoggingRoundTripper{
+		Proxied: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: false,
+				RootCAs:            nil,
+			},
+			Proxy:             http.ProxyFromEnvironment,
+			DisableKeepAlives: false,
+		},
+	}
+
 	ts := oauth2.Config{
 		ClientID:     config.ClientID,
 		ClientSecret: config.ClientSecret,
 		Endpoint: oauth2.Endpoint{
 			AuthURL:   config.AuthURL.String(),
-			TokenURL:  config.AuthTokenURL.Scheme,
+			TokenURL:  config.AuthTokenURL.String(),
 			AuthStyle: oauth2.AuthStyleAutoDetect,
 		},
 	}
@@ -39,28 +50,11 @@ func NewClient(ctx context.Context, config *Config) (*Client, error) {
 	c.Host = config.ApiURL.Host
 	c.UserAgent = config.UserAgent
 	c.Debug = false
-	c.HTTPClient = ts.Client(ctx, nil)
+	c.HTTPClient = ts.Client(context.WithValue(ctx, oauth2.HTTPClient, http.Client{Transport: t}), nil)
 
 	s := Client{
 		api: controlplane.NewAPIClient(c),
 	}
 
 	return &s, nil
-}
-
-func createTransport(config *Config) (transport http.RoundTripper) {
-	// Create the raw transport:
-	// #nosec 402
-	transport = &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: false,
-			RootCAs:            nil,
-		},
-		Proxy:             http.ProxyFromEnvironment,
-		DisableKeepAlives: false,
-	}
-
-	return logger.LoggingRoundTripper{
-		Proxied: transport,
-	}
 }
