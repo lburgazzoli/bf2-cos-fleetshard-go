@@ -1,6 +1,7 @@
 package fleetmanager
 
 import (
+	"context"
 	"crypto/tls"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/internal/api/controlplane"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/logger"
@@ -10,9 +11,9 @@ import (
 )
 
 type Config struct {
-	AccessToken  string
 	ApiURL       *url.URL
 	AuthURL      *url.URL
+	AuthTokenURL *url.URL
 	UserAgent    string
 	ClientID     string
 	ClientSecret string
@@ -22,24 +23,23 @@ type Client struct {
 	api *controlplane.APIClient
 }
 
-func NewClient(config *Config) (*Client, error) {
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{
-			AccessToken: config.AccessToken,
+func NewClient(ctx context.Context, config *Config) (*Client, error) {
+	ts := oauth2.Config{
+		ClientID:     config.ClientID,
+		ClientSecret: config.ClientSecret,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:   config.AuthURL.String(),
+			TokenURL:  config.AuthTokenURL.Scheme,
+			AuthStyle: oauth2.AuthStyleAutoDetect,
 		},
-	)
+	}
 
 	c := controlplane.NewConfiguration()
 	c.Scheme = config.ApiURL.Scheme
 	c.Host = config.ApiURL.Host
 	c.UserAgent = config.UserAgent
 	c.Debug = false
-	c.HTTPClient = &http.Client{
-		Transport: &oauth2.Transport{
-			Base:   createTransport(config),
-			Source: oauth2.ReuseTokenSource(nil, ts),
-		},
-	}
+	c.HTTPClient = ts.Client(ctx, nil)
 
 	s := Client{
 		api: controlplane.NewAPIClient(c),
