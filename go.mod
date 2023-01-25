@@ -14,7 +14,7 @@ require (
 	github.com/rs/xid v1.4.0
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5
-	github.com/stoewer/go-strcase v1.2.0
+	github.com/stoewer/go-strcase v1.2.1
 	github.com/stretchr/testify v1.8.1
 	k8s.io/api v0.25.0
 	k8s.io/apimachinery v0.26.1
