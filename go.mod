@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/apache/camel-k/pkg/apis/camel v1.11.0
 	github.com/cucumber/godog v0.12.6
-	github.com/evanphx/json-patch v4.12.0+incompatible
+	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/go-logr/logr v1.2.3
 	github.com/onsi/ginkgo/v2 v2.7.0
 	github.com/onsi/gomega v1.26.0
