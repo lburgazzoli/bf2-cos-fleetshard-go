@@ -4,6 +4,10 @@ IMG ?= controller:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.25.0
 
+MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
+PROJECT_PATH := $(patsubst %/,%,$(dir $(MKFILE_PATH)))
+LOCAL_BIN_PATH := ${PROJECT_PATH}/bin
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -74,6 +78,34 @@ build: manifests generate fmt vet ## Build manager binary.
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run main.go camel run --operator-id foo --operator-group cos.bf2.dev --operator-type camel --operator-version 2 --pprof-bind-address localhost:6060
 
+
+.PHONY: openapi/generate
+generate/openapi: openapi-generator
+	$(OPENAPI_GENERATOR) validate -i etc/openapi/connector_mgmt-private.yaml
+	$(OPENAPI_GENERATOR) generate -i etc/openapi/connector_mgmt-private.yaml \
+		-g go \
+		-o internal/api/controlplane \
+		--package-name controlplane  \
+		--additional-properties=enumClassPrefix=true \
+		--additional-properties=isGoSubmodule=false \
+		--additional-properties=withGoCodegenComment=true \
+		--ignore-file-override etc/openapi/.openapi-generator-ignore
+
+	$(GOFMT) -w internal/api/controlplane
+
+	rm internal/api/controlplane/go.sum
+	rm internal/api/controlplane/go.mod
+	rm internal/api/controlplane/git_push.sh
+	rm internal/api/controlplane/.travis.yml
+	rm internal/api/controlplane/.openapi-generator-ignore
+	rm internal/api/controlplane/README.md
+
+	rm -rf internal/api/controlplane/docs
+	rm -rf internal/api/controlplane/api
+	rm -rf internal/api/controlplane/.openapi-generator
+	rm -rf internal/api/controlplane/test
+
+
 ##@ Deployment
 
 ifndef ignore-not-found
@@ -127,3 +159,25 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+
+OPENAPI_GENERATOR ?= ${LOCAL_BIN_PATH}/openapi-generator
+NPM ?= "$(shell which npm)"
+openapi-generator:
+ifeq (, $(shell which ${NPM} 2> /dev/null))
+	@echo "npm is not available please install it to be able to install openapi-generator"
+	exit 1
+endif
+ifeq (, $(shell which ${LOCAL_BIN_PATH}/openapi-generator 2> /dev/null))
+	@{ \
+	set -e ;\
+	mkdir -p ${LOCAL_BIN_PATH} ;\
+	mkdir -p ${LOCAL_BIN_PATH}/openapi-generator-installation ;\
+	cd ${LOCAL_BIN_PATH} ;\
+	${NPM} install --prefix ${LOCAL_BIN_PATH}/openapi-generator-installation @openapitools/openapi-generator-cli ;\
+	ln -s openapi-generator-installation/node_modules/.bin/openapi-generator-cli openapi-generator ;\
+	}
+endif
+
+
+.PHONY: openapi-generator
