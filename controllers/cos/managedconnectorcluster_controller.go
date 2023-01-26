@@ -88,9 +88,7 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 		// Handle deletion
 		//
 
-		if controllerutil.ContainsFinalizer(mcc, defaults.ConnectorClustersFinalizerName) {
-			controllerutil.RemoveFinalizer(mcc, defaults.ConnectorClustersFinalizerName)
-
+		if controllerutil.RemoveFinalizer(mcc, defaults.ConnectorClustersFinalizerName) {
 			if err := r.Update(ctx, mcc); err != nil {
 				if k8serrors.IsConflict(err) {
 					return ctrl.Result{}, err
@@ -149,6 +147,20 @@ func (r *ManagedConnectorClusterReconciler) poll(ctx context.Context, mcc *cosv2
 
 	for i := range namespaces {
 		r.l.Info("namespace", "id", namespaces[i].Id, "revision", namespaces[i].ResourceVersion)
+
+		ns := corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "mctr-" + namespaces[i].Id,
+			},
+		}
+
+		newNs := ns.DeepCopy()
+
+		patched, err := resources.Apply(ctx, r.Client, &ns, newNs)
+		if err != nil {
+			return err
+		}
+		r.l.Info("namespace", "id", namespaces[i].Id, "revision", namespaces[i].ResourceVersion, "patched", patched)
 	}
 
 	connectors, cnErr := c.GetConnectors(ctx, 0)
@@ -158,6 +170,22 @@ func (r *ManagedConnectorClusterReconciler) poll(ctx context.Context, mcc *cosv2
 
 	for i := range connectors {
 		r.l.Info("connector", "id", connectors[i].Id, "revision", connectors[i].Metadata.ResourceVersion)
+
+		c := cosv2.ManagedConnector{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "mctr-" + *connectors[i].Spec.NamespaceId,
+				Name:      "mctr-" + *connectors[i].Id,
+			},
+		}
+
+		newC := c.DeepCopy()
+
+		patched, err := resources.Apply(ctx, r.Client, &c, newC)
+		if err != nil {
+			return err
+		}
+
+		r.l.Info("connector", "id", connectors[i].Id, "revision", connectors[i].Metadata.ResourceVersion, "patched", patched)
 	}
 
 	return nil
