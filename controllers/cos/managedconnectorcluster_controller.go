@@ -124,7 +124,7 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 		})
 	}
 
-	if err := r.Update(ctx, mcc); err != nil {
+	if err := r.Status().Update(ctx, mcc); err != nil {
 		if k8serrors.IsConflict(err) {
 			return ctrl.Result{}, err
 		}
@@ -148,6 +148,13 @@ func (r *ManagedConnectorClusterReconciler) run(ctx context.Context, mcc *cosv2.
 			Name:      mcc.Spec.Auth.ClientSecret.SecretKeyRef.Name,
 			Namespace: mcc.Namespace,
 		},
+	}
+
+	if err := resources.Get(ctx, r, cid); err != nil {
+		return err
+	}
+	if err := resources.Get(ctx, r, cs); err != nil {
+		return err
 	}
 
 	cpUrl, err := url.Parse(mcc.Spec.ControlPlaneURL)

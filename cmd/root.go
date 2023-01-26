@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"github.com/spf13/cobra"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/cmd/fleetshard/agent"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/cmd/fleetshard/camel"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/logger"
 	"k8s.io/klog/v2"
@@ -18,6 +19,7 @@ func Execute() {
 	}
 
 	rootCmd.AddCommand(camel.NewCamelCmd())
+	rootCmd.AddCommand(agent.NewCamelCmd())
 
 	fs := flag.NewFlagSet("", flag.PanicOnError)
 

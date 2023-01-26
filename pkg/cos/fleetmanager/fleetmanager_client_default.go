@@ -25,7 +25,7 @@ func (c *defaultClient) GetNamespaces(ctx context.Context, id string, revision i
 		}
 
 		if err != nil {
-			return []controlplane.ConnectorNamespaceDeployment{}, nil
+			return []controlplane.ConnectorNamespaceDeployment{}, err
 		}
 		if len(result.Items) == 0 {
 			break
@@ -52,7 +52,7 @@ func (c *defaultClient) GetConnectors(ctx context.Context, id string, revision i
 		}
 
 		if err != nil {
-			return []controlplane.ConnectorDeployment{}, nil
+			return []controlplane.ConnectorDeployment{}, err
 		}
 		if len(result.Items) == 0 {
 			break
