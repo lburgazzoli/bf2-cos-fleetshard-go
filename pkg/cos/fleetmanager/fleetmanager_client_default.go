@@ -15,9 +15,9 @@ func (c *defaultClient) GetNamespaces(ctx context.Context, id string, revision i
 
 	for i := 1; ; i++ {
 		r := c.api.ConnectorClustersAgentApi.GetClusterAsignedConnectorNamespaces(ctx, id)
-		r.Page(strconv.Itoa(i))
-		r.Size(strconv.Itoa(100))
-		r.GtVersion(revision)
+		r = r.Page(strconv.Itoa(i))
+		r = r.Size(strconv.Itoa(100))
+		r = r.GtVersion(revision)
 
 		result, httpRes, err := r.Execute()
 		if httpRes != nil {
@@ -42,9 +42,9 @@ func (c *defaultClient) GetConnectors(ctx context.Context, id string, revision i
 
 	for i := 1; ; i++ {
 		r := c.api.ConnectorClustersAgentApi.GetClusterAsignedConnectorDeployments(ctx, id)
-		r.Page(strconv.Itoa(i))
-		r.Size(strconv.Itoa(100))
-		r.GtVersion(revision)
+		r = r.Page(strconv.Itoa(i))
+		r = r.Size(strconv.Itoa(100))
+		r = r.GtVersion(revision)
 
 		result, httpRes, err := r.Execute()
 		if httpRes != nil {

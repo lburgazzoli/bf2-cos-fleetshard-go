@@ -6,6 +6,7 @@ import (
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/internal/api/controlplane"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/logger"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/clientcredentials"
 	"net/http"
 	"net/url"
 )
@@ -31,22 +32,21 @@ func NewClient(ctx context.Context, config Config) (Client, error) {
 		},
 	}
 
-	oauthConfig := oauth2.Config{
+	oauthConfig := clientcredentials.Config{
 		ClientID:     config.ClientID,
 		ClientSecret: config.ClientSecret,
-		Endpoint: oauth2.Endpoint{
-			AuthURL:   config.AuthURL.String(),
-			TokenURL:  config.AuthTokenURL.String(),
-			AuthStyle: oauth2.AuthStyleAutoDetect,
-		},
+		TokenURL:     config.AuthTokenURL.String(),
+		AuthStyle:    oauth2.AuthStyleAutoDetect,
 	}
+
+	ct := context.WithValue(ctx, oauth2.HTTPClient, http.Client{Transport: t})
 
 	apiConfig := controlplane.NewConfiguration()
 	apiConfig.Scheme = config.ApiURL.Scheme
 	apiConfig.Host = config.ApiURL.Host
 	apiConfig.UserAgent = config.UserAgent
 	apiConfig.Debug = false
-	apiConfig.HTTPClient = oauthConfig.Client(context.WithValue(ctx, oauth2.HTTPClient, http.Client{Transport: t}), nil)
+	apiConfig.HTTPClient = oauthConfig.Client(ct)
 
 	client := defaultClient{
 		api: controlplane.NewAPIClient(apiConfig),
