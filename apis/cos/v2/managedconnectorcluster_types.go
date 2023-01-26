@@ -18,7 +18,6 @@ package v2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"net/url"
 )
 
 func init() {
@@ -29,11 +28,11 @@ func init() {
 type ManagedConnectorClusterSpec struct {
 	// +required
 	// +kubebuilder:validation:Required
-	ControlPlaneURL url.URL `json:"controlPlaneURL"`
+	ControlPlaneURL string `json:"controlPlaneURL"`
 
 	// +required
 	// +kubebuilder:default:15s
-	PollDelay metav1.Duration
+	PollDelay metav1.Duration `json:"pollDelay"`
 
 	// +required
 	// +kubebuilder:validation:Required

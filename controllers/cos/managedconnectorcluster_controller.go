@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"net/url"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -149,11 +150,21 @@ func (r *ManagedConnectorClusterReconciler) run(ctx context.Context, mcc *cosv2.
 		},
 	}
 
+	cpUrl, err := url.Parse(mcc.Spec.ControlPlaneURL)
+	if err != nil {
+		return err
+	}
+
+	autUrl, err := url.Parse(mcc.Spec.Auth.AuthURL)
+	if err != nil {
+		return err
+	}
+
 	// TODO: cache
 	c, err := fleetmanager.NewClient(ctx, fleetmanager.Config{
-		ApiURL:       &mcc.Spec.ControlPlaneURL,
-		AuthURL:      &mcc.Spec.Auth.AuthURL,
-		AuthTokenURL: mcc.Spec.Auth.AuthURL.JoinPath("auth", "realms", mcc.Spec.Auth.AuthRealm, "protocol", "openid-connect", "token"),
+		ApiURL:       cpUrl,
+		AuthURL:      autUrl,
+		AuthTokenURL: autUrl.JoinPath("auth", "realms", mcc.Spec.Auth.AuthRealm, "protocol", "openid-connect", "token"),
 		ClientID:     string(cid.Data[mcc.Spec.Auth.ClientID.SecretKeyRef.Key]),
 		ClientSecret: string(cs.Data[mcc.Spec.Auth.ClientSecret.SecretKeyRef.Key]),
 	})

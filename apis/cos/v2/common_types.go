@@ -3,7 +3,6 @@ package v2
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"net/url"
 )
 
 // Condition ---
@@ -16,7 +15,7 @@ type Condition struct {
 type AuthSpec struct {
 	// +required
 	// +kubebuilder:validation:Required
-	AuthURL url.URL `json:"authURL"`
+	AuthURL string `json:"authURL"`
 	// +required
 	// +kubebuilder:validation:Required
 	AuthRealm string `json:"authRealm"`
