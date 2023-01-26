@@ -6,6 +6,6 @@ import (
 )
 
 type Client interface {
-	GetNamespaces(context.Context, string, int64) ([]controlplane.ConnectorNamespaceDeployment, error)
-	GetConnectors(context.Context, string, int64) ([]controlplane.ConnectorDeployment, error)
+	GetNamespaces(context.Context, int64) ([]controlplane.ConnectorNamespaceDeployment, error)
+	GetConnectors(context.Context, int64) ([]controlplane.ConnectorDeployment, error)
 }

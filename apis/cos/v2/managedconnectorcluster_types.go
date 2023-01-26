@@ -28,15 +28,11 @@ func init() {
 type ManagedConnectorClusterSpec struct {
 	// +required
 	// +kubebuilder:validation:Required
-	ControlPlaneURL string `json:"controlPlaneURL"`
+	Secret string `json:"secret"`
 
-	// +required
-	// +kubebuilder:default:15s
+	// +optional
+	// +kubebuilder:default:="15s"
 	PollDelay metav1.Duration `json:"pollDelay"`
-
-	// +required
-	// +kubebuilder:validation:Required
-	Auth AuthSpec `json:"auth"`
 }
 
 // ManagedConnectorClusterStatus ---

@@ -7,14 +7,15 @@ import (
 )
 
 type defaultClient struct {
-	api *controlplane.APIClient
+	clusterId string
+	api       *controlplane.APIClient
 }
 
-func (c *defaultClient) GetNamespaces(ctx context.Context, id string, revision int64) ([]controlplane.ConnectorNamespaceDeployment, error) {
+func (c *defaultClient) GetNamespaces(ctx context.Context, revision int64) ([]controlplane.ConnectorNamespaceDeployment, error) {
 	items := make([]controlplane.ConnectorNamespaceDeployment, 0)
 
 	for i := 1; ; i++ {
-		r := c.api.ConnectorClustersAgentApi.GetClusterAsignedConnectorNamespaces(ctx, id)
+		r := c.api.ConnectorClustersAgentApi.GetClusterAsignedConnectorNamespaces(ctx, c.clusterId)
 		r = r.Page(strconv.Itoa(i))
 		r = r.Size(strconv.Itoa(100))
 		r = r.GtVersion(revision)
@@ -37,11 +38,11 @@ func (c *defaultClient) GetNamespaces(ctx context.Context, id string, revision i
 	return items, nil
 }
 
-func (c *defaultClient) GetConnectors(ctx context.Context, id string, revision int64) ([]controlplane.ConnectorDeployment, error) {
+func (c *defaultClient) GetConnectors(ctx context.Context, revision int64) ([]controlplane.ConnectorDeployment, error) {
 	items := make([]controlplane.ConnectorDeployment, 0)
 
 	for i := 1; ; i++ {
-		r := c.api.ConnectorClustersAgentApi.GetClusterAsignedConnectorDeployments(ctx, id)
+		r := c.api.ConnectorClustersAgentApi.GetClusterAsignedConnectorDeployments(ctx, c.clusterId)
 		r = r.Page(strconv.Itoa(i))
 		r = r.Size(strconv.Itoa(100))
 		r = r.GtVersion(revision)

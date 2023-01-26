@@ -107,7 +107,7 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 	// TODO: add conditions & co
 	// TODO: deal with changes
 
-	err := r.run(ctx, mcc)
+	err := r.poll(ctx, mcc)
 	if err != nil {
 		meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
 			Type:    "Triggered",
@@ -136,51 +136,13 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 	return ctrl.Result{RequeueAfter: mcc.Spec.PollDelay.Duration}, nil
 }
 
-func (r *ManagedConnectorClusterReconciler) run(ctx context.Context, mcc *cosv2.ManagedConnectorCluster) error {
-	cid := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      mcc.Spec.Auth.ClientID.SecretKeyRef.Name,
-			Namespace: mcc.Namespace,
-		},
-	}
-	cs := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      mcc.Spec.Auth.ClientSecret.SecretKeyRef.Name,
-			Namespace: mcc.Namespace,
-		},
-	}
-
-	if err := resources.Get(ctx, r, cid); err != nil {
-		return err
-	}
-	if err := resources.Get(ctx, r, cs); err != nil {
-		return err
-	}
-
-	cpUrl, err := url.Parse(mcc.Spec.ControlPlaneURL)
+func (r *ManagedConnectorClusterReconciler) poll(ctx context.Context, mcc *cosv2.ManagedConnectorCluster) error {
+	c, err := r.client(ctx, mcc)
 	if err != nil {
 		return err
 	}
 
-	autUrl, err := url.Parse(mcc.Spec.Auth.AuthURL)
-	if err != nil {
-		return err
-	}
-
-	// TODO: cache
-	c, err := fleetmanager.NewClient(ctx, fleetmanager.Config{
-		ApiURL:       cpUrl,
-		AuthURL:      autUrl,
-		AuthTokenURL: autUrl.JoinPath("auth", "realms", mcc.Spec.Auth.AuthRealm, "protocol", "openid-connect", "token"),
-		ClientID:     string(cid.Data[mcc.Spec.Auth.ClientID.SecretKeyRef.Key]),
-		ClientSecret: string(cs.Data[mcc.Spec.Auth.ClientSecret.SecretKeyRef.Key]),
-	})
-
-	if err != nil {
-		return err
-	}
-
-	namespaces, nsErr := c.GetNamespaces(ctx, mcc.Name, 0)
+	namespaces, nsErr := c.GetNamespaces(ctx, 0)
 	if nsErr != nil {
 		return errors.Wrapf(nsErr, "failure polling for namespaces")
 	}
@@ -189,7 +151,7 @@ func (r *ManagedConnectorClusterReconciler) run(ctx context.Context, mcc *cosv2.
 		r.l.Info("namespace", "id", namespaces[i].Id, "revision", namespaces[i].ResourceVersion)
 	}
 
-	connectors, cnErr := c.GetConnectors(ctx, mcc.Name, 0)
+	connectors, cnErr := c.GetConnectors(ctx, 0)
 	if cnErr != nil {
 		return errors.Wrapf(nsErr, "failure polling for connectors")
 	}
@@ -199,4 +161,41 @@ func (r *ManagedConnectorClusterReconciler) run(ctx context.Context, mcc *cosv2.
 	}
 
 	return nil
+}
+
+func (r *ManagedConnectorClusterReconciler) client(ctx context.Context, mcc *cosv2.ManagedConnectorCluster) (fleetmanager.Client, error) {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      mcc.Spec.Secret,
+			Namespace: mcc.Namespace,
+		},
+	}
+
+	if err := resources.Get(ctx, r, secret); err != nil {
+		return nil, err
+	}
+
+	params, err := DecodeAddonsParams(secret.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	cpUrl, err := url.Parse(params.BaseURL)
+	if err != nil {
+		return nil, err
+	}
+
+	autUrl, err := url.Parse(params.AuthURL)
+	if err != nil {
+		return nil, err
+	}
+
+	return fleetmanager.NewClient(ctx, fleetmanager.Config{
+		ApiURL:       cpUrl,
+		AuthURL:      autUrl,
+		AuthTokenURL: autUrl.JoinPath("auth", "realms", params.AuthRealm, "protocol", "openid-connect", "token"),
+		ClientID:     params.ClientID,
+		ClientSecret: params.ClientSecret,
+		ClusterID:    params.ClusterID,
+	})
 }
