@@ -68,3 +68,4 @@ reports/
 
 /etc/examples/my_sink.yaml
 /etc/examples/cluster.txt
+/etc/examples/my_cluster.yaml

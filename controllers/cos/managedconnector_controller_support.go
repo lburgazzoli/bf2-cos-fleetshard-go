@@ -3,6 +3,7 @@ package cos
 import (
 	"context"
 	"fmt"
+	camelv1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
 	"github.com/pkg/errors"
 	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
@@ -79,15 +80,10 @@ func (r *ManagedConnectorReconciler) initialize(mgr ctrl.Manager) error {
 			builder.WithPredicates(
 				predicate.And(
 					operatorTypeSelector,
-					predicate.GenerationChangedPredicate{})))
-
-	for i := range r.options.Reconciler.Owned {
-		c.Owns(
-			r.options.Reconciler.Owned[i],
-			// TODO: add label selection
-			// predicate.LabelSelectorPredicate(),
+					predicate.GenerationChangedPredicate{}))).
+		Owns(
+			&camelv1alpha1.KameletBinding{},
 			builder.WithPredicates(predicates.StatusChanged{}))
-	}
 
 	return c.Complete(r)
 }

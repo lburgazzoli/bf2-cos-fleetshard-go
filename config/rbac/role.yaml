@@ -44,6 +44,32 @@ rules:
 - apiGroups:
   - cos.bf2.dev
   resources:
+  - managedconnectorclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cos.bf2.dev
+  resources:
+  - managedconnectorclusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - cos.bf2.dev
+  resources:
+  - managedconnectorclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - cos.bf2.dev
+  resources:
   - managedconnectors
   verbs:
   - create

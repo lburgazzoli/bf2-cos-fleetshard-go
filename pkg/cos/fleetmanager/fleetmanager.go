@@ -19,11 +19,7 @@ type Config struct {
 	ClientSecret string
 }
 
-type Client struct {
-	api *controlplane.APIClient
-}
-
-func NewClient(ctx context.Context, config *Config) (*Client, error) {
+func NewClient(ctx context.Context, config Config) (Client, error) {
 	t := logger.LoggingRoundTripper{
 		Proxied: &http.Transport{
 			TLSClientConfig: &tls.Config{
@@ -35,7 +31,7 @@ func NewClient(ctx context.Context, config *Config) (*Client, error) {
 		},
 	}
 
-	ts := oauth2.Config{
+	oauthConfig := oauth2.Config{
 		ClientID:     config.ClientID,
 		ClientSecret: config.ClientSecret,
 		Endpoint: oauth2.Endpoint{
@@ -45,16 +41,16 @@ func NewClient(ctx context.Context, config *Config) (*Client, error) {
 		},
 	}
 
-	c := controlplane.NewConfiguration()
-	c.Scheme = config.ApiURL.Scheme
-	c.Host = config.ApiURL.Host
-	c.UserAgent = config.UserAgent
-	c.Debug = false
-	c.HTTPClient = ts.Client(context.WithValue(ctx, oauth2.HTTPClient, http.Client{Transport: t}), nil)
+	apiConfig := controlplane.NewConfiguration()
+	apiConfig.Scheme = config.ApiURL.Scheme
+	apiConfig.Host = config.ApiURL.Host
+	apiConfig.UserAgent = config.UserAgent
+	apiConfig.Debug = false
+	apiConfig.HTTPClient = oauthConfig.Client(context.WithValue(ctx, oauth2.HTTPClient, http.Client{Transport: t}), nil)
 
-	s := Client{
-		api: controlplane.NewAPIClient(c),
+	client := defaultClient{
+		api: controlplane.NewAPIClient(apiConfig),
 	}
 
-	return &s, nil
+	return &client, nil
 }

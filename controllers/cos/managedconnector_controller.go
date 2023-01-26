@@ -19,6 +19,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/internal/camel"
 )
 
 // ManagedConnectorReconciler reconciles a ManagedConnector object
@@ -42,12 +44,12 @@ func NewManagedConnectorReconciler(mgr manager.Manager, options controller.Optio
 	return r, r.initialize(mgr)
 }
 
-//+kubebuilder:rbac:groups=cos.bf2.dev,resources=managedconnectors,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=cos.bf2.dev,resources=managedconnectors/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=cos.bf2.dev,resources=managedconnectors/finalizers,verbs=update
-//+kubebuilder:rbac:groups=camel.apache.org,resources=kameletbindings,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cos.bf2.dev,resources=managedconnectors,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cos.bf2.dev,resources=managedconnectors/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=cos.bf2.dev,resources=managedconnectors/finalizers,verbs=update
+// +kubebuilder:rbac:groups=camel.apache.org,resources=kameletbindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
 func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
@@ -111,13 +113,13 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	//
 
 	// copy for patch
-	//orig := rc.Connector.DeepCopy()
+	// orig := rc.Connector.DeepCopy()
 
 	rc.Connector = rc.Connector.DeepCopy()
 	rc.Secret = rc.Secret.DeepCopy()
 	rc.ConfigMap = rc.ConfigMap.DeepCopy()
 
-	if update, err := r.options.Reconciler.ApplyFunc(rc); err != nil && !update {
+	if update, err := camel.Apply(rc); err != nil && !update {
 		return ctrl.Result{}, err
 	}
 
@@ -128,7 +130,7 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// TODO: must be properly computed or removed
 	rc.Connector.Status.Phase = "Unknown"
 
-	//if err := resources.PatchStatus(ctx, r.Client, &connector, rc.Connector); err != nil {
+	// if err := resources.PatchStatus(ctx, r.Client, &connector, rc.Connector); err != nil {
 	// resources.PatchStatus(ctx, r.Client, &orig, rc.Connector)
 
 	sort.SliceStable(rc.Connector.Status.Conditions, func(i, j int) bool {

@@ -18,6 +18,7 @@ package v2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"net/url"
 )
 
 func init() {
@@ -28,7 +29,12 @@ func init() {
 type ManagedConnectorClusterSpec struct {
 	// +required
 	// +kubebuilder:validation:Required
-	ControlPlaneURL string `json:"controlPlaneURL"`
+	ControlPlaneURL url.URL `json:"controlPlaneURL"`
+
+	// +required
+	// +kubebuilder:default:15s
+	PollDelay metav1.Duration
+
 	// +required
 	// +kubebuilder:validation:Required
 	Auth AuthSpec `json:"auth"`
@@ -41,8 +47,8 @@ type ManagedConnectorClusterStatus struct {
 	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // ManagedConnectorCluster is the Schema for the managedconnectorclusters API
 type ManagedConnectorCluster struct {
@@ -53,7 +59,7 @@ type ManagedConnectorCluster struct {
 	Status ManagedConnectorClusterStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // ManagedConnectorClusterList contains a list of ManagedConnectorCluster
 type ManagedConnectorClusterList struct {

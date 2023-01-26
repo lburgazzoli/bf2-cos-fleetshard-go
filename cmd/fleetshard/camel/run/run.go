@@ -4,46 +4,51 @@ import (
 	camelv1 "github.com/apache/camel-k/pkg/apis/camel/v1"
 	camelv1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
 	"github.com/spf13/cobra"
-
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/internal/camel"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard"
-
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/controllers/cos"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	cosv2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
 func init() {
-	utilruntime.Must(cosv2.AddToScheme(fleetshard.Scheme))
-	utilruntime.Must(camelv1alpha1.AddToScheme(fleetshard.Scheme))
-	utilruntime.Must(camelv1.AddToScheme(fleetshard.Scheme))
+	utilruntime.Must(cosv2.AddToScheme(controller.Scheme))
+	utilruntime.Must(camelv1alpha1.AddToScheme(controller.Scheme))
+	utilruntime.Must(camelv1.AddToScheme(controller.Scheme))
 }
 
 func NewRunCmd() *cobra.Command {
 	options := controller.Options{
-		Group:                         "cos.bf2.dev",
-		ID:                            "",
-		Type:                          "",
-		Version:                       "",
 		MetricsAddr:                   ":8080",
 		ProbeAddr:                     ":8081",
 		ProofAddr:                     "",
 		EnableLeaderElection:          false,
 		ReleaseLeaderElectionOnCancel: true,
-		Reconciler: controller.Reconciler{
-			Owned:     []client.Object{&camelv1alpha1.KameletBinding{}},
-			ApplyFunc: camel.Apply,
-		},
+		Group:                         "cos.bf2.dev",
+		ID:                            "",
+		Version:                       "",
+		Type:                          "",
 	}
 
 	cmd := cobra.Command{
 		Use:   "run",
 		Short: "run",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return fleetshard.Start(options)
+			return controller.Start(options, func(manager manager.Manager, opts controller.Options) error {
+				if _, err := cos.NewManagedConnectorReconciler(manager, opts); err != nil {
+					ctrl.Log.WithName("controller-camel").Error(
+						err,
+						"unable to create controller",
+						"controller", cosv2.GroupVersion.String()+":ManagedConnector")
+
+					return err
+				}
+
+				return nil
+			})
 		},
 	}
 
