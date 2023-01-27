@@ -44,6 +44,7 @@ type ManagedConnectorClusterStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:path=managedconnectorclusters,scope=Namespaced,shortName=mcc,categories=cos;mas
 
 // ManagedConnectorCluster is the Schema for the managedconnectorclusters API
 type ManagedConnectorCluster struct {

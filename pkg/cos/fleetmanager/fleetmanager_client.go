@@ -8,4 +8,5 @@ import (
 type Client interface {
 	GetNamespaces(context.Context, int64) ([]controlplane.ConnectorNamespaceDeployment, error)
 	GetConnectors(context.Context, int64) ([]controlplane.ConnectorDeployment, error)
+	UpdateClusterStatus(ctx context.Context, status controlplane.ConnectorClusterStatus) error
 }

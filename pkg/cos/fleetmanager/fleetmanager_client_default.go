@@ -64,3 +64,15 @@ func (c *defaultClient) GetConnectors(ctx context.Context, revision int64) ([]co
 
 	return items, nil
 }
+
+func (c *defaultClient) UpdateClusterStatus(ctx context.Context, status controlplane.ConnectorClusterStatus) error {
+	r := c.api.ConnectorClustersAgentApi.UpdateKafkaConnectorClusterStatus(ctx, c.clusterId)
+	r = r.ConnectorClusterStatus(status)
+
+	httpRes, err := r.Execute()
+	if httpRes != nil {
+		_ = httpRes.Body.Close()
+	}
+
+	return err
+}

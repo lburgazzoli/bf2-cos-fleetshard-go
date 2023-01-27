@@ -9,9 +9,14 @@ metadata:
 spec:
   group: cos.bf2.dev
   names:
+    categories:
+    - cos
+    - mas
     kind: ManagedConnectorCluster
     listKind: ManagedConnectorClusterList
     plural: managedconnectorclusters
+    shortNames:
+    - mcc
     singular: managedconnectorcluster
   scope: Namespaced
   versions:

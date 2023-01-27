@@ -32,8 +32,9 @@ type ManagedConnectorOperatorSpec struct {
 type ManagedConnectorOperatorStatus struct {
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:path=managedconnectoroperators,scope=Namespaced,shortName=mco,categories=cos;mas
 
 // ManagedConnectorOperator is the Schema for the managedconnectoroperators API
 type ManagedConnectorOperator struct {
@@ -44,7 +45,7 @@ type ManagedConnectorOperator struct {
 	Status ManagedConnectorOperatorStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // ManagedConnectorOperatorList contains a list of ManagedConnectorOperator
 type ManagedConnectorOperatorList struct {

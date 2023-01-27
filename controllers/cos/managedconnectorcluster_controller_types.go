@@ -1,6 +1,9 @@
 package cos
 
-import "github.com/mitchellh/mapstructure"
+import (
+	"github.com/mitchellh/mapstructure"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetmanager"
+)
 
 type AddonParameters struct {
 	BaseURL      string `mapstructure:"control-plane-base-url"`
@@ -14,10 +17,16 @@ type AddonParameters struct {
 func DecodeAddonsParams(in interface{}) (AddonParameters, error) {
 	var params AddonParameters
 
-	err := mapstructure.Decode(in, &params)
+	err := mapstructure.WeakDecode(in, &params)
 	if err != nil {
 		return params, err
 	}
 
 	return params, nil
+}
+
+type Cluster struct {
+	fleetmanager.Client
+
+	Parameters AddonParameters
 }
