@@ -11,7 +11,9 @@ import (
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetmanager"
 	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/defaults"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/pointer"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources/secrets"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -219,8 +221,23 @@ func (r *ManagedConnectorClusterReconciler) update(ctx context.Context, named ty
 		return err
 	}
 
-	return c.Client.UpdateClusterStatus(ctx, controlplane.ConnectorClusterStatus{})
+	status := controlplane.ConnectorClusterStatus{
+		Phase:      pointer.Of(controlplane.CONNECTORCLUSTERSTATE_READY),
+		Platform:   &controlplane.ConnectorClusterPlatform{Type: pointer.Of("kubernetes")},
+		Namespaces: make([]controlplane.ConnectorNamespaceDeploymentStatus, 0),
+		Operators:  make([]controlplane.ConnectorClusterStatusOperatorsInner, 0),
+	}
 
+	namespaces := corev1.NamespaceList{}
+	if err := r.List(ctx, &namespaces, client.MatchingLabels{cosmeta.MetaClusterID: c.Parameters.ClusterID}); err != nil {
+		return err
+	}
+
+	for n := range namespaces.Items {
+		status.Namespaces = append(status.Namespaces, fleetmanager.PresentConnectorNamespaceDeploymentStatus(namespaces.Items[n]))
+	}
+
+	return c.Client.UpdateClusterStatus(ctx, status)
 }
 
 func (r *ManagedConnectorClusterReconciler) cluster(ctx context.Context, named types.NamespacedName, mcc *cosv2.ManagedConnectorCluster) (Cluster, error) {
@@ -228,18 +245,18 @@ func (r *ManagedConnectorClusterReconciler) cluster(ctx context.Context, named t
 		return c, nil
 	}
 
-	secret := &corev1.Secret{
+	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mcc.Spec.Secret,
 			Namespace: mcc.Namespace,
 		},
 	}
 
-	if err := resources.Get(ctx, r, secret); err != nil {
+	if err := resources.Get(ctx, r, &secret); err != nil {
 		return Cluster{}, err
 	}
 
-	params, err := DecodeAddonsParams(secret.Data)
+	params, err := secrets.Decode[AddonParameters](secret)
 	if err != nil {
 		return Cluster{}, err
 	}

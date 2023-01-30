@@ -3,7 +3,9 @@ package secrets
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources/decoder"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 	"sort"
@@ -54,6 +56,32 @@ func ExtractStructuredData[T any](resource corev1.Secret, key string, target *T)
 	}
 
 	return nil
+}
+
+// Decode decodes secret's data using mapstructure
+func Decode[T any](resource corev1.Secret) (T, error) {
+	var result T
+
+	if resource.Data == nil {
+		return result, nil
+	}
+
+	cfg := mapstructure.DecoderConfig{
+		WeaklyTypedInput: true,
+		Result:           &result,
+		DecodeHook:       decoder.StringToURLHookFunc(),
+	}
+
+	decoder, err := mapstructure.NewDecoder(&cfg)
+	if err != nil {
+		return result, err
+	}
+
+	if err := decoder.Decode(resource.Data); err != nil {
+		return result, err
+	}
+
+	return result, nil
 }
 
 func SetStructuredData(resource *corev1.Secret, key string, val interface{}) error {
