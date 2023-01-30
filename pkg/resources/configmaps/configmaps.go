@@ -3,7 +3,9 @@ package configmaps
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources/decoder"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 	"sort"
@@ -66,4 +68,34 @@ func SetStructuredData(resource *corev1.ConfigMap, key string, val interface{}) 
 	resource.Data[key] = string(data)
 
 	return nil
+}
+
+// Decode decodes configmap's data using mapstructure
+// TODO: add constraints to T
+func Decode[T any](resource corev1.ConfigMap) (T, error) {
+	var result T
+
+	if resource.Data == nil {
+		return result, nil
+	}
+
+	cfg := mapstructure.DecoderConfig{
+		WeaklyTypedInput: true,
+		Result:           &result,
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			decoder.StringToURLHookFunc(),
+			decoder.BytesToURLHookFunc(),
+		),
+	}
+
+	decoder, err := mapstructure.NewDecoder(&cfg)
+	if err != nil {
+		return result, err
+	}
+
+	if err := decoder.Decode(resource.Data); err != nil {
+		return result, err
+	}
+
+	return result, nil
 }

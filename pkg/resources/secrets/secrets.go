@@ -59,6 +59,7 @@ func ExtractStructuredData[T any](resource corev1.Secret, key string, target *T)
 }
 
 // Decode decodes secret's data using mapstructure
+// TODO: add constraints to T
 func Decode[T any](resource corev1.Secret) (T, error) {
 	var result T
 
@@ -69,7 +70,10 @@ func Decode[T any](resource corev1.Secret) (T, error) {
 	cfg := mapstructure.DecoderConfig{
 		WeaklyTypedInput: true,
 		Result:           &result,
-		DecodeHook:       decoder.StringToURLHookFunc(),
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			decoder.StringToURLHookFunc(),
+			decoder.BytesToURLHookFunc(),
+		),
 	}
 
 	decoder, err := mapstructure.NewDecoder(&cfg)

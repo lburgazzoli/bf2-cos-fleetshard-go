@@ -15,7 +15,19 @@ import (
 func TestReify(t *testing.T) {
 
 	var err error
-	var secret corev1.Secret
+
+	secret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mctr-foo-secret",
+			Namespace: "mctr-baz",
+		},
+	}
+	configmap := corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mctr-foo-configmap",
+			Namespace: "mctr-baz",
+		},
+	}
 
 	err = secrets.SetStructuredData(&secret, "serviceAccount", ServiceAccount{
 		ClientID:     "225143db-c506-4f3c-9925-0772a2d825cb",
@@ -88,7 +100,8 @@ func TestReify(t *testing.T) {
 					DeploymentID: "did",
 				},
 			},
-			Secret: &secret,
+			Secret:    &secret,
+			ConfigMap: &configmap,
 		},
 	)
 

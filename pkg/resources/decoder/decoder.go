@@ -20,7 +20,6 @@ func StringToURLHookFunc() mapstructure.DecodeHookFunc {
 			return data, nil
 		}
 
-		// Convert it by parsing
 		return url.Parse(data.(string))
 	}
 }
@@ -39,7 +38,8 @@ func BytesToURLHookFunc() mapstructure.DecodeHookFunc {
 			return data, nil
 		}
 
-		// Convert it by parsing
-		return url.Parse(data.(string))
+		content := data.([]byte)
+
+		return url.Parse(string(content))
 	}
 }

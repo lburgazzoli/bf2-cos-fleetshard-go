@@ -2,16 +2,12 @@ package cos
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	cosv2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/internal/api/controlplane"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetmanager"
-	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/defaults"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/pointer"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources/secrets"
 	corev1 "k8s.io/api/core/v1"
@@ -20,12 +16,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"net/url"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 // ManagedConnectorClusterReconciler reconciles a ManagedConnector object
@@ -49,6 +46,19 @@ func NewManagedConnectorClusterReconciler(mgr manager.Manager, options controlle
 	}
 
 	return r, r.initialize(mgr)
+}
+
+func (r *ManagedConnectorClusterReconciler) initialize(mgr ctrl.Manager) error {
+	c := ctrl.NewControllerManagedBy(mgr).
+		Named("ManagedConnectorClusterController").
+		For(&cosv2.ManagedConnectorCluster{}, builder.WithPredicates(
+			predicate.Or(
+				predicate.GenerationChangedPredicate{},
+				predicate.AnnotationChangedPredicate{},
+				predicate.LabelChangedPredicate{},
+			)))
+
+	return c.Complete(r)
 }
 
 // +kubebuilder:rbac:groups=cos.bf2.dev,resources=managedconnectorclusters,verbs=get;list;watch;create;update;patch;delete
@@ -116,7 +126,7 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 	mcc.Status.ObservedGeneration = mcc.Generation
 	mcc.Status.Phase = "Running"
 
-	err := r.poll(ctx, req.NamespacedName, mcc)
+	err := r.pollAndApply(ctx, req.NamespacedName, mcc)
 	if err != nil {
 		meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
 			Type:    "Triggered",
@@ -145,99 +155,21 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 	return ctrl.Result{RequeueAfter: mcc.Spec.PollDelay.Duration}, nil
 }
 
-func (r *ManagedConnectorClusterReconciler) poll(ctx context.Context, named types.NamespacedName, mcc *cosv2.ManagedConnectorCluster) error {
+func (r *ManagedConnectorClusterReconciler) pollAndApply(ctx context.Context, named types.NamespacedName, mcc *cosv2.ManagedConnectorCluster) error {
 	c, err := r.cluster(ctx, named, mcc)
 	if err != nil {
 		return err
 	}
 
-	namespaces, nsErr := c.GetNamespaces(ctx, 0)
-	if nsErr != nil {
-		return errors.Wrapf(nsErr, "failure polling for namespaces")
+	if err := r.deployNamespaces(ctx, c, 0); err != nil {
+		return errors.Wrapf(err, "failure handling for namespaces")
 	}
 
-	for i := range namespaces {
-		r.l.Info("namespace", "id", namespaces[i].Id, "revision", namespaces[i].ResourceVersion)
-
-		ns := corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "mctr-" + namespaces[i].Id,
-				Labels: map[string]string{
-					cosmeta.MetaClusterID:         c.Parameters.ClusterID,
-					cosmeta.MetaNamespaceID:       namespaces[i].Id,
-					cosmeta.MetaNamespaceRevision: fmt.Sprintf("%d", namespaces[i].ResourceVersion),
-				},
-			},
-		}
-
-		newNs := ns.DeepCopy()
-
-		patched, err := resources.Apply(ctx, r.Client, &ns, newNs)
-		if err != nil {
-			return err
-		}
-		r.l.Info("namespace", "id", namespaces[i].Id, "revision", namespaces[i].ResourceVersion, "patched", patched)
-	}
-
-	connectors, cnErr := c.GetConnectors(ctx, 0)
-	if cnErr != nil {
-		return errors.Wrapf(nsErr, "failure polling for connectors")
-	}
-
-	for i := range connectors {
-		r.l.Info("connector", "id", connectors[i].Id, "revision", connectors[i].Metadata.ResourceVersion)
-
-		c := cosv2.ManagedConnector{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "mctr-" + *connectors[i].Spec.NamespaceId,
-				Name:      "mctr-" + *connectors[i].Id,
-				Labels: map[string]string{
-					cosmeta.MetaClusterID:          c.Parameters.ClusterID,
-					cosmeta.MetaNamespaceID:        namespaces[i].Id,
-					cosmeta.MetaDeploymentID:       *connectors[i].Id,
-					cosmeta.MetaDeploymentRevision: fmt.Sprintf("%d", connectors[i].Metadata.ResourceVersion),
-					cosmeta.MetaConnectorID:        *connectors[i].Spec.ConnectorId,
-					cosmeta.MetaConnectorRevision:  fmt.Sprintf("%d", connectors[i].Spec.ConnectorResourceVersion),
-				},
-			},
-		}
-
-		newC := c.DeepCopy()
-
-		patched, err := resources.Apply(ctx, r.Client, &c, newC)
-		if err != nil {
-			return err
-		}
-
-		r.l.Info("connector", "id", connectors[i].Id, "revision", connectors[i].Metadata.ResourceVersion, "patched", patched)
+	if err := r.deployConnectors(ctx, c, 0); err != nil {
+		return errors.Wrapf(err, "failure handling for namespaces")
 	}
 
 	return nil
-}
-
-func (r *ManagedConnectorClusterReconciler) update(ctx context.Context, named types.NamespacedName, mcc *cosv2.ManagedConnectorCluster) error {
-	c, err := r.cluster(ctx, named, mcc)
-	if err != nil {
-		return err
-	}
-
-	status := controlplane.ConnectorClusterStatus{
-		Phase:      pointer.Of(controlplane.CONNECTORCLUSTERSTATE_READY),
-		Platform:   &controlplane.ConnectorClusterPlatform{Type: pointer.Of("kubernetes")},
-		Namespaces: make([]controlplane.ConnectorNamespaceDeploymentStatus, 0),
-		Operators:  make([]controlplane.ConnectorClusterStatusOperatorsInner, 0),
-	}
-
-	namespaces := corev1.NamespaceList{}
-	if err := r.List(ctx, &namespaces, client.MatchingLabels{cosmeta.MetaClusterID: c.Parameters.ClusterID}); err != nil {
-		return err
-	}
-
-	for n := range namespaces.Items {
-		status.Namespaces = append(status.Namespaces, fleetmanager.PresentConnectorNamespaceDeploymentStatus(namespaces.Items[n]))
-	}
-
-	return c.Client.UpdateClusterStatus(ctx, status)
 }
 
 func (r *ManagedConnectorClusterReconciler) cluster(ctx context.Context, named types.NamespacedName, mcc *cosv2.ManagedConnectorCluster) (Cluster, error) {
@@ -261,20 +193,10 @@ func (r *ManagedConnectorClusterReconciler) cluster(ctx context.Context, named t
 		return Cluster{}, err
 	}
 
-	cpUrl, err := url.Parse(params.BaseURL)
-	if err != nil {
-		return Cluster{}, err
-	}
-
-	autUrl, err := url.Parse(params.AuthURL)
-	if err != nil {
-		return Cluster{}, err
-	}
-
 	c, err := fleetmanager.NewClient(ctx, fleetmanager.Config{
-		ApiURL:       cpUrl,
-		AuthURL:      autUrl,
-		AuthTokenURL: autUrl.JoinPath("auth", "realms", params.AuthRealm, "protocol", "openid-connect", "token"),
+		ApiURL:       params.BaseURL,
+		AuthURL:      params.AuthURL,
+		AuthTokenURL: params.AuthURL.JoinPath("auth", "realms", params.AuthRealm, "protocol", "openid-connect", "token"),
 		ClientID:     params.ClientID,
 		ClientSecret: params.ClientSecret,
 		ClusterID:    params.ClusterID,
