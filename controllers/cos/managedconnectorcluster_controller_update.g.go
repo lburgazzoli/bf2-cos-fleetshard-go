@@ -55,18 +55,19 @@ func (r *ManagedConnectorClusterReconciler) updateConnectorsStatus(
 		return err
 	}
 
-	for n := range resources.Items {
-		status := fleetmanager.PresentConnectorDeploymentStatus(resources.Items[n])
+	for i := range resources.Items {
+		connector := resources.Items[i]
+		status := fleetmanager.PresentConnectorDeploymentStatus(connector)
 
-		if err := c.Client.UpdateConnectorDeploymentStatus(ctx, resources.Items[n].Spec.DeploymentID, status); err != nil {
+		if err := c.Client.UpdateConnectorDeploymentStatus(ctx, connector.Spec.DeploymentID, status); err != nil {
 			gone := fleetmanager.ResourceGone{}
 			if errors.As(err, &gone) {
 				r.l.Info(
 					"connector gone, delete",
-					"deployment_id", resources.Items[n].Spec.DeploymentID,
-					"connector_id", resources.Items[n].Spec.ConnectorID)
+					"deployment_id", connector.Spec.DeploymentID,
+					"connector_id", connector.Spec.ConnectorID)
 
-				if err := r.Delete(ctx, res); err != nil && !k8serrors.IsNotFound(err) {
+				if err := r.Delete(ctx, &connector); err != nil && !k8serrors.IsNotFound(err) {
 					return err
 				}
 			}
