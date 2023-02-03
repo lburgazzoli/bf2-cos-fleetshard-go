@@ -78,3 +78,10 @@ func AsNamespacedName(obj client.Object) types.NamespacedName {
 func Get(ctx context.Context, c client.Reader, target client.Object, opts ...client.GetOption) error {
 	return c.Get(ctx, AsNamespacedName(target), target, opts...)
 }
+
+func AsObjectMeta(resource types.NamespacedName) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:      resource.Name,
+		Namespace: resource.Namespace,
+	}
+}

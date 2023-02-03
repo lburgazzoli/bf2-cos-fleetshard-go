@@ -101,7 +101,31 @@ func (r *ManagedConnectorClusterReconciler) deployConnectors(
 			cosmeta.MetaConnectorID:        *connectors[i].Spec.ConnectorId,
 			cosmeta.MetaConnectorRevision:  fmt.Sprintf("%d", connectors[i].Spec.ConnectorResourceVersion),
 			cosmeta.MetaUnitOfWork:         uow,
+			cosmeta.MetaOperatorType:       cosmeta.OperatorTypeCamel,
 		}
+
+		newC.Spec.ClusterID = cluster.Parameters.ClusterID
+		newC.Spec.ConnectorID = *connectors[i].Spec.ConnectorId
+		newC.Spec.ConnectorResourceVersion = *connectors[i].Spec.ConnectorResourceVersion
+		newC.Spec.ConnectorTypeID = *connectors[i].Spec.ConnectorTypeId
+		newC.Spec.DeploymentID = *connectors[i].Id
+		newC.Spec.DeploymentResourceVersion = connectors[i].Metadata.ResourceVersion
+		newC.Spec.DesiredState = cosv2.DesiredStateType(*connectors[i].Spec.DesiredState)
+
+		if connectors[i].Spec.Kafka != nil {
+			newC.Spec.Kafka = cosv2.KafkaSpec{
+				URL: connectors[i].Spec.Kafka.Url,
+				ID:  connectors[i].Spec.Kafka.Id,
+			}
+		}
+
+		if connectors[i].Spec.SchemaRegistry != nil {
+			newC.Spec.ServiceRegistry = &cosv2.ServiceRegistrySpec{
+				URL: connectors[i].Spec.SchemaRegistry.Url,
+				ID:  connectors[i].Spec.SchemaRegistry.Id,
+			}
+		}
+
 		newS.Labels = map[string]string{
 			cosmeta.MetaClusterID:          cluster.Parameters.ClusterID,
 			cosmeta.MetaNamespaceID:        *connectors[i].Spec.NamespaceId,
@@ -110,12 +134,14 @@ func (r *ManagedConnectorClusterReconciler) deployConnectors(
 			cosmeta.MetaConnectorID:        *connectors[i].Spec.ConnectorId,
 			cosmeta.MetaConnectorRevision:  fmt.Sprintf("%d", connectors[i].Spec.ConnectorResourceVersion),
 			cosmeta.MetaUnitOfWork:         uow,
+			cosmeta.MetaOperatorType:       cosmeta.OperatorTypeCamel,
 		}
+
 		newS.Data = make(map[string][]byte)
 		newS.StringData = make(map[string]string)
 
-		newS.Data["sa_client_id"] = []byte(connectors[i].Spec.ServiceAccount.ClientId)
-		newS.Data["sa_client_secret"] = []byte(connectors[i].Spec.ServiceAccount.ClientSecret)
+		newS.Data[cosmeta.ServiceAccountClientID] = []byte(connectors[i].Spec.ServiceAccount.ClientId)
+		newS.Data[cosmeta.ServiceAccountClientSecret] = []byte(connectors[i].Spec.ServiceAccount.ClientSecret)
 
 		for k, v := range connectors[i].Spec.ConnectorSpec {
 			switch d := v.(type) {
@@ -137,7 +163,15 @@ func (r *ManagedConnectorClusterReconciler) deployConnectors(
 		if err != nil {
 			return err
 		}
-		if err := json.Unmarshal(d, &newC.Spec.Config); err != nil {
+		if err := json.Unmarshal(d, &newC.Spec.DeploymentConfig); err != nil {
+			return err
+		}
+
+		m, err := json.Marshal(connectors[i].Spec.ShardMetadata)
+		if err != nil {
+			return err
+		}
+		if err := json.Unmarshal(m, &newC.Spec.DeploymentMeta); err != nil {
 			return err
 		}
 

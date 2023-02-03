@@ -71,63 +71,55 @@ spec:
             properties:
               clusterId:
                 type: string
-              config:
-                type: object
-                x-kubernetes-preserve-unknown-fields: true
               connectorId:
                 type: string
-              deployment:
-                description: DeploymentSpec ---
-                properties:
-                  connectorResourceVersion:
-                    format: int64
-                    type: integer
-                  connectorTypeId:
-                    type: string
-                  deploymentResourceVersion:
-                    format: int64
-                    type: integer
-                  desiredState:
-                    type: string
-                  kafka:
-                    description: KafkaSpec ---
-                    properties:
-                      id:
-                        type: string
-                      url:
-                        type: string
-                    required:
-                    - id
-                    - url
-                    type: object
-                  serviceRegistry:
-                    description: ServiceRegistrySpec ---
-                    properties:
-                      id:
-                        type: string
-                      url:
-                        type: string
-                    required:
-                    - id
-                    - url
-                    type: object
-                required:
-                - connectorResourceVersion
-                - connectorTypeId
-                - deploymentResourceVersion
-                - desiredState
-                - kafka
+              connectorResourceVersion:
+                format: int64
+                type: integer
+              connectorTypeId:
+                type: string
+              deploymentConfig:
                 type: object
+                x-kubernetes-preserve-unknown-fields: true
               deploymentId:
                 type: string
+              deploymentMeta:
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              deploymentResourceVersion:
+                format: int64
+                type: integer
+              desiredState:
+                type: string
+              kafka:
+                description: KafkaSpec ---
+                properties:
+                  id:
+                    type: string
+                  url:
+                    type: string
+                type: object
               operatorId:
                 type: string
+              serviceRegistry:
+                description: ServiceRegistrySpec ---
+                properties:
+                  id:
+                    type: string
+                  url:
+                    type: string
+                type: object
             required:
             - clusterId
-            - config
             - connectorId
-            - deployment
+            - connectorResourceVersion
+            - connectorTypeId
+            - deploymentConfig
             - deploymentId
+            - deploymentMeta
+            - deploymentResourceVersion
+            - desiredState
+            - kafka
             - operatorId
             type: object
           status:

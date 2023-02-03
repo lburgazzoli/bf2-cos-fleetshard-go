@@ -30,8 +30,8 @@ func (rc *ReconciliationContext) PatchDependant(source client.Object, target cli
 		target.SetAnnotations(make(map[string]string))
 	}
 
-	target.GetAnnotations()[cosmeta.MetaConnectorRevision] = fmt.Sprintf("%d", rc.Connector.Spec.Deployment.ConnectorResourceVersion)
-	target.GetAnnotations()[cosmeta.MetaDeploymentRevision] = fmt.Sprintf("%d", rc.Connector.Spec.Deployment.DeploymentResourceVersion)
+	target.GetAnnotations()[cosmeta.MetaConnectorRevision] = fmt.Sprintf("%d", rc.Connector.Spec.ConnectorResourceVersion)
+	target.GetAnnotations()[cosmeta.MetaDeploymentRevision] = fmt.Sprintf("%d", rc.Connector.Spec.DeploymentResourceVersion)
 
 	return resources.Apply(rc.C, rc.Client, source, target)
 }

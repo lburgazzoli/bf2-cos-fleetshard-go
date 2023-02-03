@@ -71,11 +71,6 @@ func (builder *Builder) Properties(properties map[string]interface{}) *Builder {
 
 func (builder *Builder) PropertiesFrom(properties map[string]interface{}, prefix string) *Builder {
 	for k, v := range properties {
-		// rude check, it should be enhanced
-		if _, ok := v.(map[string]interface{}); ok {
-			continue
-		}
-
 		if strings.HasPrefix(k, prefix+"_") {
 			k = strings.TrimPrefix(k, prefix+"_")
 			k = strcase.LowerCamelCase(k)

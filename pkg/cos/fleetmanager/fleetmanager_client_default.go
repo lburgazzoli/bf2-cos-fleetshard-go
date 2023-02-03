@@ -3,6 +3,7 @@ package fleetmanager
 import (
 	"context"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/internal/api/controlplane"
+	"net/http"
 	"strconv"
 )
 
@@ -21,7 +22,7 @@ func (c *defaultClient) GetNamespaces(ctx context.Context, revision int64) ([]co
 		r = r.GtVersion(revision)
 
 		result, httpRes, err := r.Execute()
-		if httpRes != nil {
+		if httpRes != nil && httpRes.Body != nil {
 			_ = httpRes.Body.Close()
 		}
 
@@ -48,7 +49,7 @@ func (c *defaultClient) GetConnectors(ctx context.Context, revision int64) ([]co
 		r = r.GtVersion(revision)
 
 		result, httpRes, err := r.Execute()
-		if httpRes != nil {
+		if httpRes != nil && httpRes.Body != nil {
 			_ = httpRes.Body.Close()
 		}
 
@@ -72,6 +73,32 @@ func (c *defaultClient) UpdateClusterStatus(ctx context.Context, status controlp
 	httpRes, err := r.Execute()
 	if httpRes != nil {
 		_ = httpRes.Body.Close()
+
+		if httpRes.StatusCode == http.StatusGone {
+			return ResourceGone{
+				error: "",
+				code:  httpRes.StatusCode,
+			}
+		}
+	}
+
+	return err
+}
+
+func (c *defaultClient) UpdateConnectorDeploymentStatus(ctx context.Context, id string, status controlplane.ConnectorDeploymentStatus) error {
+	r := c.api.ConnectorClustersAgentApi.UpdateConnectorDeploymentStatus(ctx, c.clusterId, id)
+	r = r.ConnectorDeploymentStatus(status)
+
+	httpRes, err := r.Execute()
+	if httpRes != nil && httpRes.Body != nil {
+		_ = httpRes.Body.Close()
+
+		if httpRes.StatusCode == http.StatusGone {
+			return ResourceGone{
+				error: "",
+				code:  httpRes.StatusCode,
+			}
+		}
 	}
 
 	return err

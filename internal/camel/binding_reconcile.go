@@ -56,7 +56,7 @@ func Apply(rc controller.ReconciliationContext) (bool, error) {
 	// Update binding & secret
 	//
 
-	switch rc.Connector.Spec.Deployment.DesiredState {
+	switch rc.Connector.Spec.DesiredState {
 	case cos.DesiredStateReady:
 		if err := handleReady(rc, &binding, &bindingSecret, &bindingConfig); err != nil {
 			return true, err
@@ -70,7 +70,7 @@ func Apply(rc controller.ReconciliationContext) (bool, error) {
 			return true, err
 		}
 	default:
-		err := fmt.Errorf("unsupported desired state %s", rc.Connector.Spec.Deployment.DesiredState)
+		err := fmt.Errorf("unsupported desired state %s", rc.Connector.Spec.DesiredState)
 
 		conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeProvisioned, func(condition *cos.Condition) {
 			condition.Status = metav1.ConditionFalse
@@ -85,7 +85,7 @@ func Apply(rc controller.ReconciliationContext) (bool, error) {
 
 	for i := range rc.Connector.Status.Conditions {
 		rc.Connector.Status.Conditions[i].ObservedGeneration = rc.Connector.Status.ObservedGeneration
-		rc.Connector.Status.Conditions[i].ResourceRevision = rc.Connector.Spec.Deployment.DeploymentResourceVersion
+		rc.Connector.Status.Conditions[i].ResourceRevision = rc.Connector.Spec.DeploymentResourceVersion
 	}
 
 	return true, nil
@@ -156,6 +156,7 @@ func handleReady(
 	return nil
 }
 
+// TODO: should scale the binding
 func handleStop(
 	rc controller.ReconciliationContext,
 	binding *kamelv1alpha1.KameletBinding,

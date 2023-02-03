@@ -1,7 +1,6 @@
 package v2
 
 import (
-	"errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -19,49 +18,28 @@ const (
 
 // KafkaSpec ---
 type KafkaSpec struct {
-	ID string `json:"id"`
+	ID string `json:"id,omitempty"`
 
 	// +required
 	// +kubebuilder:validation:Required
-	URL string `json:"url"`
+	URL string `json:"url,omitempty"`
 }
 
 // ServiceRegistrySpec ---
 type ServiceRegistrySpec struct {
-	ID string `json:"id"`
+	ID string `json:"id,omitempty"`
 
 	// +required
 	// +kubebuilder:validation:Required
-	URL string `json:"url"`
-}
-
-// DeploymentSpec ---
-type DeploymentSpec struct {
-	// +required
-	// +kubebuilder:validation:Required
-	ConnectorTypeID string `json:"connectorTypeId"`
-
-	// +required
-	// +kubebuilder:validation:Required
-	ConnectorResourceVersion int64 `json:"connectorResourceVersion"`
-
-	// +required
-	// +kubebuilder:validation:Required
-	DeploymentResourceVersion int64 `json:"deploymentResourceVersion"`
-
-	// +required
-	// +kubebuilder:validation:Required
-	DesiredState DesiredStateType `json:"desiredState"`
-
-	// +required
-	// +kubebuilder:validation:Required
-	Kafka KafkaSpec `json:"kafka"`
-
-	ServiceRegistry *ServiceRegistrySpec `json:"serviceRegistry,omitempty"`
+	URL string `json:"url,omitempty"`
 }
 
 // ManagedConnectorSpec defines the desired state of ManagedConnector
 type ManagedConnectorSpec struct {
+	// +required
+	// +kubebuilder:validation:Required
+	OperatorID string `json:"operatorId"`
+
 	// +required
 	// +kubebuilder:validation:Required
 	ClusterID string `json:"clusterId"`
@@ -72,44 +50,37 @@ type ManagedConnectorSpec struct {
 
 	// +required
 	// +kubebuilder:validation:Required
+	ConnectorTypeID string `json:"connectorTypeId"`
+
+	// +required
+	// +kubebuilder:validation:Required
+	ConnectorResourceVersion int64 `json:"connectorResourceVersion"`
+
+	// +required
+	// +kubebuilder:validation:Required
 	DeploymentID string `json:"deploymentId"`
 
 	// +required
 	// +kubebuilder:validation:Required
-	OperatorID string `json:"operatorId"`
+	DeploymentResourceVersion int64 `json:"deploymentResourceVersion"`
 
 	// +required
 	// +kubebuilder:validation:Required
-	Deployment DeploymentSpec `json:"deployment"`
+	DeploymentConfig RawMessage `json:"deploymentConfig"`
 
 	// +required
 	// +kubebuilder:validation:Required
-	Config ConnectorConfig `json:"config"`
-}
+	DeploymentMeta RawMessage `json:"deploymentMeta"`
 
-// ConnectorConfig is a raw encoded JSON value.
-// It implements Marshaler and Unmarshaler and can
-// be used to delay JSON decoding or precompute a JSON encoding.
-// +kubebuilder:validation:Type=object
-// +kubebuilder:validation:Format=""
-// +kubebuilder:pruning:PreserveUnknownFields
-type ConnectorConfig []byte
+	// +required
+	// +kubebuilder:validation:Required
+	DesiredState DesiredStateType `json:"desiredState"`
 
-// MarshalJSON returns m as the JSON encoding of m.
-func (m ConnectorConfig) MarshalJSON() ([]byte, error) {
-	if m == nil {
-		return []byte("null"), nil
-	}
-	return m, nil
-}
+	// +required
+	// +kubebuilder:validation:Required
+	Kafka KafkaSpec `json:"kafka"`
 
-// UnmarshalJSON sets *m to a copy of data.
-func (m *ConnectorConfig) UnmarshalJSON(data []byte) error {
-	if m == nil {
-		return errors.New("json.RawMessage: UnmarshalJSON on nil pointer")
-	}
-	*m = append((*m)[0:0], data...)
-	return nil
+	ServiceRegistry *ServiceRegistrySpec `json:"serviceRegistry,omitempty"`
 }
 
 // ManagedConnectorStatus defines the observed state of ManagedConnector

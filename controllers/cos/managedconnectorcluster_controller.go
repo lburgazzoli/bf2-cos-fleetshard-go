@@ -126,11 +126,14 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 	mcc.Status.ObservedGeneration = mcc.Generation
 	mcc.Status.Phase = "Running"
 
-	if err := r.updateClusterStatus(ctx, req.NamespacedName, mcc); err != nil {
+	if err := r.updateClusterStatus(ctx, mcc); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := r.updateConnectorsStatus(ctx, mcc); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	err := r.pollAndApply(ctx, req.NamespacedName, mcc)
+	err := r.pollAndApply(ctx, mcc)
 	if err != nil {
 		meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
 			Type:    "Triggered",
@@ -159,8 +162,8 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 	return ctrl.Result{RequeueAfter: mcc.Spec.PollDelay.Duration}, nil
 }
 
-func (r *ManagedConnectorClusterReconciler) pollAndApply(ctx context.Context, named types.NamespacedName, mcc *cosv2.ManagedConnectorCluster) error {
-	c, err := r.cluster(ctx, named, mcc)
+func (r *ManagedConnectorClusterReconciler) pollAndApply(ctx context.Context, mcc *cosv2.ManagedConnectorCluster) error {
+	c, err := r.cluster(ctx, mcc)
 	if err != nil {
 		return err
 	}
@@ -176,7 +179,21 @@ func (r *ManagedConnectorClusterReconciler) pollAndApply(ctx context.Context, na
 	return nil
 }
 
-func (r *ManagedConnectorClusterReconciler) cluster(ctx context.Context, named types.NamespacedName, mcc *cosv2.ManagedConnectorCluster) (Cluster, error) {
+func (r *ManagedConnectorClusterReconciler) clusterById(id string) *Cluster {
+	for _, v := range r.clients {
+		cluster := v
+
+		if cluster.Parameters.ClusterID == id {
+			return &cluster
+		}
+	}
+
+	return nil
+}
+
+func (r *ManagedConnectorClusterReconciler) cluster(ctx context.Context, mcc *cosv2.ManagedConnectorCluster) (Cluster, error) {
+	named := resources.AsNamespacedName(mcc)
+
 	if c, ok := r.clients[named]; ok {
 		return c, nil
 	}

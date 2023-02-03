@@ -5,7 +5,6 @@ import (
 	"github.com/go-logr/logr"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sort"
 	"time"
 
@@ -64,22 +63,13 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			Namespace: req.Namespace,
 		},
 		Connector: &cos.ManagedConnector{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      req.Name,
-				Namespace: req.Namespace,
-			},
+			ObjectMeta: resources.AsObjectMeta(req.NamespacedName),
 		},
 		Secret: &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      req.Name + "-deploy",
-				Namespace: req.Namespace,
-			},
+			ObjectMeta: resources.AsObjectMeta(req.NamespacedName),
 		},
 		ConfigMap: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      req.Name + "-deploy",
-				Namespace: req.Namespace,
-			},
+			ObjectMeta: resources.AsObjectMeta(req.NamespacedName),
 		},
 	}
 

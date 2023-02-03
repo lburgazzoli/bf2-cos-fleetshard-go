@@ -1,7 +1,7 @@
 package camel
 
 import (
-	"encoding/base64"
+	"encoding/json"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/internal/camel/endpoints"
 	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
 	"sort"
@@ -17,14 +17,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-const (
-	SecretEntryConnector       string = "connector"
-	SecretEntryServiceAccount  string = "serviceAccount"
-	SecretEntryMeta            string = "meta"
-	ServiceAccountClientID     string = "sa_client_id"
-	ServiceAccountClientSecret string = "sa_client_secret"
 )
 
 func reify(rc *controller.ReconciliationContext) (kamelv1alpha1.KameletBinding, corev1.Secret, corev1.ConfigMap, error) {
@@ -48,17 +40,13 @@ func reify(rc *controller.ReconciliationContext) (kamelv1alpha1.KameletBinding, 
 		},
 	}
 
-	var sa ServiceAccount
 	var meta ShardMetadata
 	var config ConnectorConfiguration
 
-	if err := secrets.ExtractStructuredData(*rc.Secret, SecretEntryServiceAccount, &sa); err != nil {
-		return binding, bindingSecret, bindingConfig, errors.Wrap(err, "error decoding service account")
-	}
-	if err := secrets.ExtractStructuredData(*rc.Secret, SecretEntryMeta, &meta); err != nil {
+	if err := json.Unmarshal(rc.Connector.Spec.DeploymentMeta, &meta); err != nil {
 		return binding, bindingSecret, bindingConfig, errors.Wrap(err, "error decoding shard meta")
 	}
-	if err := secrets.ExtractStructuredData(*rc.Secret, SecretEntryConnector, &config); err != nil {
+	if err := json.Unmarshal(rc.Connector.Spec.DeploymentConfig, &config); err != nil {
 		return binding, bindingSecret, bindingConfig, errors.Wrap(err, "error decoding config")
 	}
 
@@ -128,21 +116,15 @@ func reify(rc *controller.ReconciliationContext) (kamelv1alpha1.KameletBinding, 
 		"configmap:" + rc.ConfigMap.Name,
 	})
 
-	if bindingSecret.StringData == nil {
-		bindingSecret.StringData = make(map[string]string)
+	bindingSecret.Data = make(map[string][]byte)
+	for k, v := range rc.Secret.Data {
+		bindingSecret.Data[k] = v
+	}
+	bindingSecret.StringData = make(map[string]string)
+	for k, v := range rc.Secret.StringData {
+		bindingSecret.StringData[k] = v
 	}
 
-	sad, err := base64.StdEncoding.DecodeString(sa.ClientSecret)
-	if err != nil {
-		return binding, bindingSecret, bindingConfig, errors.Wrap(err, "error decoding service account")
-	}
-
-	bindingSecret.StringData[ServiceAccountClientID] = sa.ClientID
-	bindingSecret.StringData[ServiceAccountClientSecret] = string(sad)
-
-	if err := extractSecrets(config.Properties, &bindingSecret); err != nil {
-		return binding, bindingSecret, bindingConfig, err
-	}
 	if err := extractConfig(config.Properties, &bindingConfig); err != nil {
 		return binding, bindingSecret, bindingConfig, err
 	}
@@ -160,10 +142,10 @@ func reify(rc *controller.ReconciliationContext) (kamelv1alpha1.KameletBinding, 
 
 		sink, err := endpoints.NewKameletBuilder(meta.Kamelets.Kafka.Name).
 			Property("id", rc.Connector.Spec.ConnectorID+"-sink").
-			Property("bootstrapServers", rc.Connector.Spec.Deployment.Kafka.URL).
+			Property("bootstrapServers", rc.Connector.Spec.Kafka.URL).
 			Property("valueSerializer", "org.bf2.cos.connector.camel.serdes.bytes.ByteArraySerializer").
-			PropertyPlaceholder("user", ServiceAccountClientID).
-			PropertyPlaceholder("password", ServiceAccountClientSecret).
+			PropertyPlaceholder("user", cosmeta.ServiceAccountClientID).
+			PropertyPlaceholder("password", cosmeta.ServiceAccountClientSecret).
 			PropertiesFrom(config.Properties, meta.Kamelets.Kafka.Prefix).
 			Build()
 
@@ -179,11 +161,11 @@ func reify(rc *controller.ReconciliationContext) (kamelv1alpha1.KameletBinding, 
 	case ConnectorTypeSink:
 		src, err := endpoints.NewKameletBuilder(meta.Kamelets.Kafka.Name).
 			Property("id", rc.Connector.Spec.ConnectorID+"-source").
-			Property("bootstrapServers", rc.Connector.Spec.Deployment.Kafka.URL).
+			Property("bootstrapServers", rc.Connector.Spec.Kafka.URL).
 			Property("consumerGroup", rc.Connector.Spec.ConnectorID).
 			Property("valueDeserializer", "org.bf2.cos.connector.camel.serdes.bytes.ByteArrayDeserializer").
-			PropertyPlaceholder("user", ServiceAccountClientID).
-			PropertyPlaceholder("password", ServiceAccountClientSecret).
+			PropertyPlaceholder("user", cosmeta.ServiceAccountClientID).
+			PropertyPlaceholder("password", cosmeta.ServiceAccountClientSecret).
 			PropertiesFrom(config.Properties, meta.Kamelets.Kafka.Prefix).
 			Build()
 

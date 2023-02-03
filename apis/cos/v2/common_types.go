@@ -2,7 +2,6 @@ package v2
 
 import (
 	"errors"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -12,20 +11,14 @@ type Condition struct {
 	ResourceRevision int64 `json:"resourceRevision,omitempty"`
 }
 
-// AuthSpec ---
-type AuthSpec struct {
+// ServiceAccount ---
+type ServiceAccount struct {
 	// +required
 	// +kubebuilder:validation:Required
-	AuthURL string `json:"authURL"`
+	ClientID string `json:"clientId"`
 	// +required
 	// +kubebuilder:validation:Required
-	AuthRealm string `json:"authRealm"`
-	// +required
-	// +kubebuilder:validation:Required
-	ClientID corev1.EnvVarSource `json:"clientId"`
-	// +required
-	// +kubebuilder:validation:Required
-	ClientSecret corev1.EnvVarSource `json:"clientSecret"`
+	ClientSecret string `json:"clientSecret"`
 }
 
 // RawMessage is a raw encoded JSON value.
