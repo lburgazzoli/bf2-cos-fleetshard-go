@@ -26,12 +26,14 @@ func Apply(
 	source client.Object,
 	target client.Object,
 ) (bool, error) {
-	err := c.Create(ctx, target)
-	if err == nil {
-		return false, nil
-	}
-	if !errors.IsAlreadyExists(err) {
-		return false, errors2.Wrapf(err, "error during create resource: %s/%s", target.GetNamespace(), target.GetName())
+	if target.GetResourceVersion() == "" {
+		err := c.Create(ctx, target)
+		if err == nil {
+			return false, nil
+		}
+		if !errors.IsAlreadyExists(err) {
+			return false, errors2.Wrapf(err, "error during create resource: %s/%s", target.GetNamespace(), target.GetName())
+		}
 	}
 
 	// TODO: server side apply

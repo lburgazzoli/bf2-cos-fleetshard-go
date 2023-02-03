@@ -71,6 +71,9 @@ spec:
             properties:
               clusterId:
                 type: string
+              config:
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               connectorId:
                 type: string
               deployment:
@@ -121,6 +124,7 @@ spec:
                 type: string
             required:
             - clusterId
+            - config
             - connectorId
             - deployment
             - deploymentId

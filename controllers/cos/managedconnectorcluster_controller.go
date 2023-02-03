@@ -126,6 +126,10 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 	mcc.Status.ObservedGeneration = mcc.Generation
 	mcc.Status.Phase = "Running"
 
+	if err := r.updateClusterStatus(ctx, req.NamespacedName, mcc); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	err := r.pollAndApply(ctx, req.NamespacedName, mcc)
 	if err != nil {
 		meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
