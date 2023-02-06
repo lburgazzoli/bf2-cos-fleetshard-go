@@ -20,14 +20,12 @@ jobs:
     steps:          
       - name: Checkout
         uses: actions/checkout@v2
-      - name: SetUp GO
+      - name: "SetUp Go"
         uses: actions/setup-go@v2
         with:
           go-version: 1.19
-      - name: Build
-        run: |
-          make test
-      - uses: actions/cache@v3
+      - name: "SetUp Go cache"
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cache/go-build
@@ -35,6 +33,9 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+      - name: Build
+        run: |
+          make test
   publish:
     name: Publish
     needs:
