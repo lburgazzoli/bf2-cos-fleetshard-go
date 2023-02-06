@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"flag"
@@ -10,7 +10,7 @@ import (
 	"os"
 )
 
-func Execute() {
+func main() {
 	var rootCmd = &cobra.Command{
 		Use:   "fleetshard",
 		Short: "fleetshard",

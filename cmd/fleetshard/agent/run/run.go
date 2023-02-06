@@ -25,7 +25,7 @@ func NewRunCmd() *cobra.Command {
 		MetricsAddr:                   ":8080",
 		ProbeAddr:                     ":8081",
 		ProofAddr:                     "",
-		EnableLeaderElection:          false,
+		EnableLeaderElection:          true,
 		ReleaseLeaderElectionOnCancel: true,
 		Group:                         "cos.bf2.dev",
 		ID:                            "",

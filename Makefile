@@ -1,12 +1,15 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= quay.io/lburgazzoli/cos-fleetshard:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.25.0
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 PROJECT_PATH := $(patsubst %/,%,$(dir $(MKFILE_PATH)))
 LOCAL_BIN_PATH := ${PROJECT_PATH}/bin
+KO_CONFIG_PATH := ${PROJECT_PATH}/etc/ko.yaml
+KO_DOCKER_REPO := "quay.io/lburgazzoli/cos-fleetshard"
+CGO_ENABLED := 0
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -76,7 +79,7 @@ build: manifests generate fmt vet ## Build manager binary.
 
 .PHONY: run/camel
 run/camel: manifests generate fmt vet ## Run a controller from your host.
-	go run main.go camel run \
+	go run cmd/fleetshard/main.go camel run \
 		--operator-id foo \
 		--operator-group cos.bf2.dev \
 		--operator-type camel \
@@ -87,7 +90,7 @@ run/camel: manifests generate fmt vet ## Run a controller from your host.
 
 .PHONY: run/agent
 run/agent: manifests generate fmt vet ## Run a controller from your host.
-	go run main.go agent run \
+	go run cmd/fleetshard/main.go agent run \
 		--operator-id bar \
 		--operator-group cos.bf2.dev \
 		--pprof-bind-address localhost:6061 \
@@ -132,15 +135,33 @@ ifndef ignore-not-found
 endif
 
 .PHONY: install
-install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+install: manifests kustomize
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
-	#kubectl apply -f https://raw.githubusercontent.com/apache/camel-k/v1.10.0/config/crd/bases/camel.apache.org_kameletbindings.yaml --server-side
 
 .PHONY: uninstall
-uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+uninstall: manifests kustomize
 	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
-	#kubectl delete -f https://raw.githubusercontent.com/apache/camel-k/v1.10.0/config/crd/bases/camel.apache.org_kameletbindings.yaml
 
+.PHONY: deploy
+deploy: manifests kustomize
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/default | kubectl apply -f -
+
+.PHONY: undeploy
+undeploy:
+	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
+
+.PHONY: image/local
+image/publish: ko
+	KO_CONFIG_PATH=$(KO_CONFIG_PATH) KO_DOCKER_REPO=${KO_DOCKER_REPO} ko build --sbom none --bare ./cmd/fleetshard
+
+.PHONY: image/local
+image/local: ko
+	KO_CONFIG_PATH=$(KO_CONFIG_PATH) KO_DOCKER_REPO=ko.local ko build --bare ./cmd/fleetshard
+
+.PHONY: image/kind
+image/kind: ko
+	KO_CONFIG_PATH=$(KO_CONFIG_PATH) KO_DOCKER_REPO=kind.local ko build --bare ./cmd/fleetshard
 
 ##@ Build Dependencies
 
@@ -154,10 +175,12 @@ KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 GOIMPORT ?= $(LOCALBIN)/goimports
+KO ?= $(LOCALBIN)/ko
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v3.8.7
 CONTROLLER_TOOLS_VERSION ?= v0.10.0
+KO_VERSION ?= v0.12.0
 
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
@@ -187,6 +210,11 @@ envtest: $(ENVTEST)
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
+.PHONY: controller-gen
+ko: $(KO)
+$(KO): $(LOCALBIN)
+	test -s $(LOCALBIN)/ko && $(LOCALBIN)/ko version | grep -q $(KO_VERSION) || \
+	GOBIN=$(LOCALBIN) go install github.com/google/ko@$(KO_VERSION)
 
 OPENAPI_GENERATOR ?= ${LOCAL_BIN_PATH}/openapi-generator
 NPM ?= "$(shell which npm)"

@@ -2,9 +2,11 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
-  name: manager-role
+  name: cos-fleetshard-cluster-role
 rules:
+#
+# core
+#
 - apiGroups:
   - ""
   resources:
@@ -29,6 +31,9 @@ rules:
   - patch
   - update
   - watch
+#
+# camel-k
+#
 - apiGroups:
   - camel.apache.org
   resources:
@@ -53,6 +58,9 @@ rules:
   - patch
   - update
   - watch
+#
+# cos
+#
 - apiGroups:
   - cos.bf2.dev
   resources:

@@ -61,12 +61,6 @@ func (r *ManagedConnectorClusterReconciler) initialize(mgr ctrl.Manager) error {
 	return c.Complete(r)
 }
 
-// +kubebuilder:rbac:groups=cos.bf2.dev,resources=managedconnectorclusters,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=cos.bf2.dev,resources=managedconnectorclusters/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=cos.bf2.dev,resources=managedconnectorclusters/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
-
 func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
 	l.Info("Reconciling")
