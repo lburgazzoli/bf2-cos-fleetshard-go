@@ -1,0 +1,50 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - "main"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:          
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: SetUp GO
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.19
+      - name: Build
+        run: |
+          make test
+  publish:
+    name: Publish
+    needs:
+    - build
+    runs-on: ubuntu-latest
+    steps:          
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: SetUp GO
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.19
+      - name: Login to Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: quay.io
+          username: ${{ secrets.CONTAINER_REEGISTRY_USERNAME }}
+          password: ${{ secrets.CONTAINER_REEGISTRY_PASSWORD }}
+      - name: Publish
+        run: |
+          make image/publish
