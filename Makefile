@@ -40,25 +40,25 @@ all: build
 # http://linuxcommand.org/lc3_adv_awk.php
 
 .PHONY: help
-help: ## Display this help.
+help:
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 ##@ Development
 
 .PHONY: manifests
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+manifests: controller-gen
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 .PHONY: generate
-generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: fmt
-fmt: ## Run go fmt against code.
+fmt:
 	go fmt ./...
 
 .PHONY: vet
-vet: ## Run go vet against code.
+vet:
 	go vet ./...
 
 .PHONY: test
@@ -74,11 +74,11 @@ test/integration:
 ##@ Build
 
 .PHONY: build
-build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/fleetshard main.go
+build: manifests generate fmt vet
+	go build -o bin/fleetshard cmd/fleetshard/main.go
 
 .PHONY: run/camel
-run/camel: manifests generate fmt vet ## Run a controller from your host.
+run/camel: manifests generate fmt vet
 	go run cmd/fleetshard/main.go camel run \
 		--operator-id foo \
 		--operator-group cos.bf2.dev \
@@ -89,7 +89,7 @@ run/camel: manifests generate fmt vet ## Run a controller from your host.
 		--health-probe-bind-address localhost:8081
 
 .PHONY: run/agent
-run/agent: manifests generate fmt vet ## Run a controller from your host.
+run/agent: manifests generate fmt vet
 	go run cmd/fleetshard/main.go agent run \
 		--operator-id bar \
 		--operator-group cos.bf2.dev \
