@@ -153,15 +153,15 @@ undeploy:
 
 .PHONY: image/local
 image/publish: ko
-	KO_CONFIG_PATH=$(KO_CONFIG_PATH) KO_DOCKER_REPO=${KO_DOCKER_REPO} ko build --sbom none --bare ./cmd/fleetshard
+	KO_CONFIG_PATH=$(KO_CONFIG_PATH) KO_DOCKER_REPO=${KO_DOCKER_REPO} $(KO) build --sbom none --bare ./cmd/fleetshard
 
 .PHONY: image/local
 image/local: ko
-	KO_CONFIG_PATH=$(KO_CONFIG_PATH) KO_DOCKER_REPO=ko.local ko build --bare ./cmd/fleetshard
+	KO_CONFIG_PATH=$(KO_CONFIG_PATH) KO_DOCKER_REPO=ko.local $(KO) build --bare ./cmd/fleetshard
 
 .PHONY: image/kind
 image/kind: ko
-	KO_CONFIG_PATH=$(KO_CONFIG_PATH) KO_DOCKER_REPO=kind.local ko build --bare ./cmd/fleetshard
+	KO_CONFIG_PATH=$(KO_CONFIG_PATH) KO_DOCKER_REPO=kind.local $(KO) build --bare ./cmd/fleetshard
 
 ##@ Build Dependencies
 
