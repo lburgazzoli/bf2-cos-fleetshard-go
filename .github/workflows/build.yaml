@@ -62,8 +62,8 @@ jobs:
         run: |
           IMAGE=$(make image/publish)
           
-          IMAGE_NAME=$(echo IMAGE | cut -d '@' -f 1)
-          IMAGE_SHA=$(echo IMAGE | cut -d ':' -f 2)
+          IMAGE_NAME=$(echo $IMAGE | cut -d '@' -f 1)
+          IMAGE_SHA=$(echo $IMAGE | cut -d ':' -f 2)
                     
           echo "image_name=$IMAGE_NAME" >> $GITHUB_OUTPUT
           echo "image_sha=$IMAGE_SHA" >> $GITHUB_OUTPUT
