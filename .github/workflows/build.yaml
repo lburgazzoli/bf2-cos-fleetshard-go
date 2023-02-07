@@ -78,8 +78,8 @@ jobs:
         uses: actions/checkout@v3
       - name: PR
         env:
-          IMAGE_NAME: ${{ needs.publish.outputs.image_name }}
-          IMAGE_SHA: ${{ needs.publish.outputs.image_sha }}
+          IMAGE_NAME: ${{ needs.publish.outputs.imageName }}
+          IMAGE_SHA: ${{ needs.publish.outputs.imageSha }}
           BRANCH_NAME: cos-fleetshard-${{ needs.publish.outputs.image }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
