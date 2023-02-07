@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - "main"
+    paths-ignore:
+      - config/overlays/dev/kustomization.yaml
   workflow_dispatch:
 
 concurrency:
@@ -80,7 +82,7 @@ jobs:
         env:
           IMAGE_NAME: ${{ needs.publish.outputs.imageName }}
           IMAGE_SHA: ${{ needs.publish.outputs.imageSha }}
-          BRANCH_NAME: cos-fleetshard-${{ needs.publish.outputs.image }}
+          BRANCH_NAME: cos-fleetshard-${{ needs.publish.outputs.imageSha }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo ""
@@ -102,7 +104,7 @@ jobs:
             git config user.name "${{ github.actor }}"
             git checkout -b ${BRANCH_NAME}
 
-            git commit -m "Update cos-fleetshard images to ${IMAGE}" config/overlays/dev/kustomization.yaml
+            git commit -m "Update cos-fleetshard images to ${IMAGE_NAME}@sha256:${IMAGE_SHA}" config/overlays/dev/kustomization.yaml
           
             git reset --hard
             git push -u origin ${BRANCH_NAME}
@@ -112,7 +114,7 @@ jobs:
             gh pr create \
               --fill \
               --base main \
-              --title "chore(kustomize): update cos-fleetshard images to ${IMAGE}" \
-              --body "${IMAGE}"
+              --title "chore(kustomize): update cos-fleetshard images to ${IMAGE_NAME}@sha256:${IMAGE_SHA}" \
+              --body "${IMAGE_NAME}@sha256:${IMAGE_SHA}"
           fi
 
