@@ -76,13 +76,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name:
+      - name: PR
         env:
           IMAGE_NAME: ${{ needs.publish.outputs.image_name }}
           IMAGE_SHA: ${{ needs.publish.outputs.image_sha }}
           BRANCH_NAME: cos-fleetshard-${{ needs.publish.outputs.image }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run:
+        run: |
+          echo ""
+          echo "image name : ${IMAGE_NAME}"
+          echo "image sha  : ${IMAGE_SHA}"
+          echo "branch name: ${BRANCH_NAME}"
+          echo ""
+          
           yq -i 'del(.images[1].newTag)' config/overlays/dev/kustomization.yaml
           yq -i '.images[1].digest = strenv(IMAGE_SHA)' config/overlays/dev/kustomization.yaml
         
@@ -98,6 +104,6 @@ jobs:
           
             sleep 15
 
-            gh pr create --fill --base --main --title "chore(kustomize) update cos-fleetshard images to ${IMAGE}" --body ""
+            gh pr create --fill --base --main --title "chore(kustomize): update cos-fleetshard images to ${IMAGE}" --body ""
           fi
 
