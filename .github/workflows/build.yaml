@@ -83,7 +83,7 @@ jobs:
           IMAGE_NAME: ${{ needs.publish.outputs.imageName }}
           IMAGE_SHA: ${{ needs.publish.outputs.imageSha }}
           BRANCH_NAME: cos-fleetshard-${{ needs.publish.outputs.imageSha }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo ""
           echo "image name : ${IMAGE_NAME}"
