@@ -88,16 +88,25 @@ jobs:
           echo "image sha  : ${IMAGE_SHA}"
           echo "branch name: ${BRANCH_NAME}"
           echo ""
-          
+
+          cat config/overlays/dev/kustomization.yaml
+
           yq -i 'del(.images[1].newTag)' config/overlays/dev/kustomization.yaml
           yq -i '.images[1].digest = strenv(IMAGE_SHA)' config/overlays/dev/kustomization.yaml
         
+          cat config/overlays/dev/kustomization.yaml
+
           git status 
           
           if [ -z "$(git status --untracked-files=no --porcelain config/overlays/dev/kustomization.yaml)" ]; then
             echo "Working directory clean excluding untracked files"
           else
-            git commit -m "Update cos-fleetshard images to ${IMAGE}"
+          
+            git config user.email "noreply@github.com"
+            git config user.name "${{ github.actor }}"
+            git checkout -b ${BRANCH_NAME}
+
+            git commit -m "Update cos-fleetshard images to ${IMAGE}" config/overlays/dev/kustomization.yaml
           
             git reset --hard
             git push -u origin ${BRANCH_NAME}
