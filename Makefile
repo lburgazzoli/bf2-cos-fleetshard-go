@@ -75,11 +75,11 @@ test/integration:
 
 .PHONY: build
 build: manifests generate fmt vet
-	go build -o bin/fleetshard cmd/fleetshard/main.go
+	CGO_ENABLED=0 go build -o bin/fleetshard cmd/fleetshard/main.go
 
 .PHONY: run/camel
 run/camel: manifests generate fmt vet
-	go run cmd/fleetshard/main.go camel run \
+	CGO_ENABLED=0 go run cmd/fleetshard/main.go camel run \
 		--operator-id foo \
 		--operator-group cos.bf2.dev \
 		--operator-type camel \
@@ -90,7 +90,7 @@ run/camel: manifests generate fmt vet
 
 .PHONY: run/agent
 run/agent: manifests generate fmt vet
-	go run cmd/fleetshard/main.go agent run \
+	CGO_ENABLED=0 go run cmd/fleetshard/main.go agent run \
 		--operator-id bar \
 		--operator-group cos.bf2.dev \
 		--pprof-bind-address localhost:6061 \
@@ -151,17 +151,17 @@ deploy: manifests kustomize
 undeploy:
 	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
-.PHONY: image/local
+.PHONY: image/publish
 image/publish: ko
 	KO_CONFIG_PATH=$(KO_CONFIG_PATH) KO_DOCKER_REPO=${KO_DOCKER_REPO} $(KO) build --sbom none --bare ./cmd/fleetshard
 
 .PHONY: image/local
 image/local: ko
-	KO_CONFIG_PATH=$(KO_CONFIG_PATH) KO_DOCKER_REPO=ko.local $(KO) build --bare ./cmd/fleetshard
+	KO_CONFIG_PATH=$(KO_CONFIG_PATH) KO_DOCKER_REPO=ko.local $(KO) build --sbom none --bare ./cmd/fleetshard
 
 .PHONY: image/kind
 image/kind: ko
-	KO_CONFIG_PATH=$(KO_CONFIG_PATH) KO_DOCKER_REPO=kind.local $(KO) build --bare ./cmd/fleetshard
+	KO_CONFIG_PATH=$(KO_CONFIG_PATH) KO_DOCKER_REPO=kind.local $(KO) build --sbom none --bare ./cmd/fleetshard
 
 ##@ Build Dependencies
 
@@ -180,7 +180,6 @@ KO ?= $(LOCALBIN)/ko
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v3.8.7
 CONTROLLER_TOOLS_VERSION ?= v0.10.0
-KO_VERSION ?= v0.12.0
 
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
@@ -213,8 +212,7 @@ $(ENVTEST): $(LOCALBIN)
 .PHONY: controller-gen
 ko: $(KO)
 $(KO): $(LOCALBIN)
-	test -s $(LOCALBIN)/ko && $(LOCALBIN)/ko version | grep -q $(KO_VERSION) || \
-	GOBIN=$(LOCALBIN) go install github.com/google/ko@$(KO_VERSION)
+	test -s $(LOCALBIN)/ko || GOBIN=$(LOCALBIN) go install github.com/google/ko@main
 
 OPENAPI_GENERATOR ?= ${LOCAL_BIN_PATH}/openapi-generator
 NPM ?= "$(shell which npm)"

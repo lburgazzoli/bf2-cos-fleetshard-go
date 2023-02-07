@@ -1,12 +1,10 @@
-defaultBaseImage: quay.io/lburgazzoli/cos-fleetshard
-
 defaultPlatforms:
-  - linux/arm64
-  - linux/amd64
+- linux/arm64
+- linux/amd64
 
 builds:
-  - id: fleetshard
-    dir: .
-    main: cmd/fleetshard/main.go
-    env:
-      - CGO_ENABLED=0
+- id: ./cmd/fleetshard
+  dir: .
+  main: cmd/fleetshard
+  env:
+    - CGO_ENABLED=0

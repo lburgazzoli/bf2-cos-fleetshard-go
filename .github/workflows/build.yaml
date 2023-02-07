@@ -41,6 +41,8 @@ jobs:
     needs:
     - build
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.publish.outputs.image }}
     steps:          
       - name: Checkout
         uses: actions/checkout@v3
@@ -55,5 +57,39 @@ jobs:
           username: ${{ secrets.CONTAINER_REGISTRY_USERNAME }}
           password: ${{ secrets.CONTAINER_REGISTRY_PASSWORD }}
       - name: Publish
+        id: publish
         run: |
-          make image/publish
+          IMAGE=$(make image/publish)
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+  pr:
+    name: PR
+    needs:
+      - publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name:
+        env:
+          IMAGE: ${{ needs.publish.outputs.image }}
+          BRANCH_NAME: cos-fleetshard-${{ needs.publish.outputs.image }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run:
+          yq -i 'del(.images[1].newTag)' config/overlays/dev/kustomization.yaml
+          yq -i '.images[1].digest = (strenv(IMAGE) | split("@") | .[1])' config/overlays/dev/kustomization.yaml
+        
+          git status 
+          
+          if [ -z "$(git status --untracked-files=no --porcelain config/overlays/dev/kustomization.yaml)" ]; then
+            echo "Working directory clean excluding untracked files"
+          else
+            git commit -m "Update cos-fleetshard images to ${IMAGE}"
+          
+            git reset --hard
+            git push -u origin ${BRANCH_NAME}
+          
+            sleep 15
+
+            gh pr create --fill --base --main --title "chore(kustomize) update cos-fleetshard images to ${IMAGE}" --body ""
+          fi
+
