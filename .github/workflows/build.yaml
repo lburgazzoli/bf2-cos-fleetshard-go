@@ -89,13 +89,9 @@ jobs:
           echo "branch name: ${BRANCH_NAME}"
           echo ""
 
-          cat config/overlays/dev/kustomization.yaml
-
           yq -i 'del(.images[1].newTag)' config/overlays/dev/kustomization.yaml
           yq -i '.images[1].digest = strenv(IMAGE_SHA)' config/overlays/dev/kustomization.yaml
         
-          cat config/overlays/dev/kustomization.yaml
-
           git status 
           
           if [ -z "$(git status --untracked-files=no --porcelain config/overlays/dev/kustomization.yaml)" ]; then
@@ -113,6 +109,10 @@ jobs:
           
             sleep 15
 
-            gh pr create --fill --base --main --title "chore(kustomize): update cos-fleetshard images to ${IMAGE}" --body ""
+            gh pr create \
+              --fill \
+              --base main \
+              --title "chore(kustomize): update cos-fleetshard images to ${IMAGE}" \
+              --body "${IMAGE}"
           fi
 
