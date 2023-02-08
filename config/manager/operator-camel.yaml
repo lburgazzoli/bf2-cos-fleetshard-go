@@ -29,9 +29,9 @@ spec:
             - 'fleetshard-operator-camel'
             - '--operator-group'
             - 'cos.bf2.dev'
-            - 'operator-type'
+            - '--operator-type'
             - 'camel'
-            - 'operator-version'
+            - '--operator-version'
             - '2'
           image: 'quay.io/lburgazzoli/cos-fleetshard:latest'
           name: manager
