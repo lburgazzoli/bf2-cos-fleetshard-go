@@ -2,6 +2,6 @@ images:
   - name: docker.io/apache/camel-k
     newTag: 1.11.1
   - name: quay.io/lburgazzoli/cos-fleetshard
-    digest: 3d811764e04d47048fd56b1366c81a8dd72749695320904c67b529fe651e7b46
+    digest: 7ed7778b8bae07fb984e292421428408fdeaa7f5d9c0771c2c65791fe9ff9369
 resources:
   - ../../manager
