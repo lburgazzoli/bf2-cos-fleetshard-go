@@ -97,11 +97,11 @@ jobs:
           branch: cos-fleetshard-${{ needs.publish.outputs.imageSha }}
           delete-branch: true
           token: ${{ secrets.GH_TOKEN }}
-          commit-message: "update cos-fleetshard images to ${IMAGE_NAME}@sha256:${IMAGE_SHA}"
-          committer: GitHub <noreply@github.com>
-          author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
-          title: "chore(kustomize): update cos-fleetshard images to ${IMAGE_NAME}@sha256:${IMAGE_SHA}"
-          body: "${IMAGE_NAME}@sha256:${IMAGE_SHA}"
+          commit-message: "update cos-fleetshard images to ${{ needs.publish.outputs.imageName }}@sha256:${{ needs.publish.outputs.imageSha }}"
+          committer: "GitHub <noreply@github.com>"
+          author: "${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>"
+          title: "chore(kustomize): update cos-fleetshard images to ${{ needs.publish.outputs.imageName }}@sha256:${{ needs.publish.outputs.imageSha }}"
+          body: "${{ needs.publish.outputs.imageName }}@sha256:${{ needs.publish.outputs.imageSha }}"
           add-paths: |
             config/overlays/dev/kustomization.yaml
 
