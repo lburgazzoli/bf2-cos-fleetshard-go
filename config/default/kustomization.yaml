@@ -6,6 +6,7 @@ commonLabels:
 
 resources:
 - images.yaml
+- namespace.yaml
 - ../camel-k
 - ../crd
 - ../rbac
