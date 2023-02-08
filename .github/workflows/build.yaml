@@ -98,7 +98,7 @@ jobs:
           base: main
           branch: cos-fleetshard-${{ needs.publish.outputs.imageSha }}
           delete-branch: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_TOKEN }}
           commit-message: "update cos-fleetshard images to ${IMAGE_NAME}@sha256:${IMAGE_SHA}"
           committer: GitHub <noreply@github.com>
           author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
