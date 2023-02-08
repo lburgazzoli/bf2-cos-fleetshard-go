@@ -88,35 +88,20 @@ jobs:
           yq -i 'del(.images[1].newTag)' config/overlays/dev/kustomization.yaml
           yq -i '.images[1].digest = strenv(IMAGE_SHA)' config/overlays/dev/kustomization.yaml
       - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v4
         env:
           IMAGE_NAME: ${{ needs.publish.outputs.imageName }}
           IMAGE_SHA: ${{ needs.publish.outputs.imageSha }}
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          BRANCH_NAME: cos-fleetshard-images-${{ needs.publish.outputs.imageSha }}
-        run: |
-          
-          git status 
-
-          if [ -z "$(git status --untracked-files=no --porcelain config/overlays/dev/kustomization.yaml)" ]; then
-            echo "Working directory clean excluding untracked files"
-          else
-
-            git config user.email "noreply@github.com"
-            git config user.name "${{ github.actor }}"
-            git checkout -b ${BRANCH_NAME}
-
-            git commit -am "Update cos-fleetshard images to ${IMAGE_NAME}@sha256:${IMAGE_SHA}"
-
-            git reset --hard
-            git push -u origin ${BRANCH_NAME}
-
-            sleep 5
-
-            gh pr create \
-              --fill \
-              --base main \
-              --title "chore(kustomize): update cos-fleetshard images to ${IMAGE_NAME}@sha256:${IMAGE_SHA}" \
-              --body "${IMAGE_NAME}@sha256:${IMAGE_SHA}"
-          fi
+        with:
+          base: main
+          branch: cos-fleetshard-${{ needs.publish.outputs.imageSha }}
+          delete-branch: true
+          token: ${{ secrets.GH_TOKEN }}
+          commit-message: "update cos-fleetshard images to ${IMAGE_NAME}@sha256:${IMAGE_SHA}"
+          committer: GitHub <noreply@github.com>
+          author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
+          title: "chore(kustomize): update cos-fleetshard images to ${IMAGE_NAME}@sha256:${IMAGE_SHA}"
+          body: "${IMAGE_NAME}@sha256:${IMAGE_SHA}"
+          add-paths: |
+            config/overlays/dev/kustomization.yaml
 
