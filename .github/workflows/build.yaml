@@ -93,6 +93,7 @@ jobs:
           IMAGE_SHA: ${{ needs.publish.outputs.imageSha }}
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          BRANCH_NAME: cos-fleetshard-images-${{ needs.publish.outputs.imageSha }}
         run: |
           
           git status 
