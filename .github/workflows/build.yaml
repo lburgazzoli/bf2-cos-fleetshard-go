@@ -81,13 +81,10 @@ jobs:
         env:
           IMAGE_NAME: ${{ needs.publish.outputs.imageName }}
           IMAGE_SHA: ${{ needs.publish.outputs.imageSha }}
-          BRANCH_NAME: cos-fleetshard-${{ needs.publish.outputs.imageSha }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo ""
           echo "image name : ${IMAGE_NAME}"
           echo "image sha  : ${IMAGE_SHA}"
-          echo "branch name: ${BRANCH_NAME}"
           echo ""
 
           yq -i 'del(.images[1].newTag)' config/overlays/dev/kustomization.yaml
@@ -97,11 +94,12 @@ jobs:
         env:
           IMAGE_NAME: ${{ needs.publish.outputs.imageName }}
           IMAGE_SHA: ${{ needs.publish.outputs.imageSha }}
-          BRANCH_NAME: cos-fleetshard-${{ needs.publish.outputs.imageSha }}
         with:
           base: main
+          branch: cos-fleetshard-${{ needs.publish.outputs.imageSha }}
+          delete-branch: true
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "Regen SBOM from commit ${{ github.sha }}"
+          commit-message: "update cos-fleetshard images to ${IMAGE_NAME}@sha256:${IMAGE_SHA}"
           committer: GitHub <noreply@github.com>
           author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
           title: "chore(kustomize): update cos-fleetshard images to ${IMAGE_NAME}@sha256:${IMAGE_SHA}"
