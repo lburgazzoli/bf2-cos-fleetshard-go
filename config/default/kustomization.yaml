@@ -16,3 +16,23 @@ resources:
 - ../crd
 - ../rbac
 - ../manager
+
+patches:
+  - target:
+      group: rbac.authorization.k8s.io
+      version: v1
+      kind: ClusterRoleBinding
+      name: ".*"
+    patch: |-
+      - op: replace
+        path: /subjects/0/namespace
+        value: "cos-fleetshard-system"
+  - target:
+      group: rbac.authorization.k8s.io
+      version: v1
+      kind: RoleBinding
+      name: "strimzi.*"
+    patch: |-
+      - op: replace
+        path: /subjects/0/namespace
+        value: "cos-fleetshard-system"
