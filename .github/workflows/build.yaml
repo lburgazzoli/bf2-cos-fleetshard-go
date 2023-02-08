@@ -99,8 +99,12 @@ jobs:
           IMAGE_NAME: ${{ needs.publish.outputs.imageName }}
           IMAGE_SHA: ${{ needs.publish.outputs.imageSha }}
           BRANCH_NAME: cos-fleetshard-${{ needs.publish.outputs.imageSha }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          base: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Regen SBOM from commit ${{ github.sha }}"
+          committer: GitHub <noreply@github.com>
+          author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
           title: "chore(kustomize): update cos-fleetshard images to ${IMAGE_NAME}@sha256:${IMAGE_SHA}"
           body: "${IMAGE_NAME}@sha256:${IMAGE_SHA}"
           add-paths: |
