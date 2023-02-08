@@ -4,8 +4,13 @@ commonLabels:
   app.kubernetes.io/created-by: cos
   app.kubernetes.io/part-of: cos-fleetshard
 
+images:
+  - name: docker.io/apache/camel-k
+    newTag: 1.11.1
+  - name: quay.io/lburgazzoli/cos-fleetshard
+    newTag: latest
+
 resources:
-- images.yaml
 - namespace.yaml
 - ../camel-k
 - ../crd

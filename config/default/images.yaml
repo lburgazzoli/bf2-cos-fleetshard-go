@@ -1,5 +1,0 @@
-images:
-  - name: docker.io/apache/camel-k
-    newTag: 1.11.1
-  - name: quay.io/lburgazzoli/cos-fleetshard
-    newTag: latest

@@ -4,4 +4,4 @@ images:
   - name: quay.io/lburgazzoli/cos-fleetshard
     digest: bfae2513e4972fcd32a8a1cba5a0e4a15d7d622eea97d85aaf43055bef908ff0
 resources:
-  - ../../manager
+  - ../../default
