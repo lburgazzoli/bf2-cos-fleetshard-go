@@ -105,7 +105,7 @@ jobs:
             git config user.name "${{ github.actor }}"
             git checkout -b ${BRANCH_NAME}
 
-            git commit -m "Update cos-fleetshard images to ${IMAGE_NAME}@sha256:${IMAGE_SHA}" config/overlays/dev/kustomization.yaml
+            git commit -am "Update cos-fleetshard images to ${IMAGE_NAME}@sha256:${IMAGE_SHA}"
 
             git reset --hard
             git push -u origin ${BRANCH_NAME}
