@@ -1,8 +1,7 @@
 package cos
 
 import (
-	cosv2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
-	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 )
 
@@ -14,17 +13,12 @@ func computeMaxRevision[T any](items []T, annotationName string) (int64, error) 
 	var max int64
 
 	for i := range items {
-
-		var annotations map[string]string
-
-		// TODO: there should be a better generic way of doing so
-		switch item := any(items[i]).(type) {
-		case corev1.Namespace:
-			annotations = item.Annotations
-		case cosv2.ManagedConnector:
-			annotations = item.Annotations
+		item, ok := any(&items[i]).(client.Object)
+		if !ok {
+			continue
 		}
 
+		annotations := item.GetAnnotations()
 		if len(annotations) == 0 {
 			continue
 		}
