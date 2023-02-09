@@ -44,6 +44,9 @@ spec:
               pollDelay:
                 default: 15s
                 type: string
+              resyncDelay:
+                default: 60s
+                type: string
               secret:
                 type: string
             required:
