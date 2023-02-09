@@ -5,3 +5,4 @@ images:
     digest: sha256:4bdc1faa23c452066cf49c58c8e29411acc9fe33eb76520e1c43f24e386cdacb
 resources:
   - ../../default
+  - cos.yaml

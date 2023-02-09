@@ -1,0 +1,8 @@
+---
+apiVersion: cos.bf2.dev/v2
+kind:  ManagedConnectorCluster
+metadata:
+  name: 'lb-dev'
+spec:
+  secret: 'addon-connectors-operator-parameters'
+  pollDelay: '5s'
