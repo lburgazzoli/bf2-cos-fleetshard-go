@@ -70,9 +70,20 @@ rules:
   - patch
   - update
   - watch
+
 #
-# cos
+# Managed Connector Clusters
 #
+- apiGroups:
+  - cos.bf2.dev
+  resources:
+  - managedconnectorclusters
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - cos.bf2.dev
   resources:
@@ -87,6 +98,10 @@ rules:
   - get
   - patch
   - update
+
+#
+# Managed Connectors
+#
 - apiGroups:
   - cos.bf2.dev
   resources:
@@ -113,3 +128,31 @@ rules:
   - get
   - patch
   - update
+
+#
+# Managed Connector Operators
+#
+- apiGroups:
+    - cos.bf2.dev
+  resources:
+    - managedconnectoroperators
+  verbs:
+    - get
+    - list
+    - patch
+    - update
+    - watch
+- apiGroups:
+    - cos.bf2.dev
+  resources:
+    - managedconnectoroperators/finalizers
+  verbs:
+    - update
+- apiGroups:
+    - cos.bf2.dev
+  resources:
+    - managedconnectoroperators/status
+  verbs:
+    - get
+    - patch
+    - update
