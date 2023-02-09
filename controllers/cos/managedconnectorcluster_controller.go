@@ -34,7 +34,7 @@ type ManagedConnectorClusterReconciler struct {
 	Scheme  *runtime.Scheme
 	mgr     manager.Manager
 	options controller.Options
-	clients map[types.NamespacedName]Cluster
+	clients map[types.NamespacedName]*Cluster
 	l       logr.Logger
 }
 
@@ -44,7 +44,7 @@ func NewManagedConnectorClusterReconciler(mgr manager.Manager, options controlle
 		Scheme:  mgr.GetScheme(),
 		mgr:     mgr,
 		options: options,
-		clients: make(map[types.NamespacedName]Cluster),
+		clients: make(map[types.NamespacedName]*Cluster),
 		l:       log.Log.WithName("cluster-reconciler"),
 	}
 
@@ -173,10 +173,13 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 	return ctrl.Result{RequeueAfter: mcc.Spec.PollDelay.Duration}, nil
 }
 
-func (r *ManagedConnectorClusterReconciler) pollAndApply(ctx context.Context, c Cluster) error {
+func (r *ManagedConnectorClusterReconciler) pollAndApply(ctx context.Context, c *Cluster) error {
 
-	resync := time.Now().After(c.ResyncAt)
+	now := time.Now()
+	resync := now.After(c.ResyncAt)
 	options := client.MatchingLabels{cosmeta.MetaClusterID: c.Parameters.ClusterID}
+
+	r.l.Info("poll", "now", now.String(), "resyncAt", c.ResyncAt.String(), "resync", resync)
 
 	//
 	// Namespaces
@@ -233,7 +236,7 @@ func (r *ManagedConnectorClusterReconciler) pollAndApply(ctx context.Context, c 
 				continue
 			}
 
-			if r, ok := connector.Annotations[cosmeta.MetaConnectorRevision]; ok {
+			if r, ok := connector.Annotations[cosmeta.MetaDeploymentRevision]; ok {
 				rev, err := strconv.ParseInt(r, 10, 64)
 				if err != nil {
 					return err
@@ -250,7 +253,9 @@ func (r *ManagedConnectorClusterReconciler) pollAndApply(ctx context.Context, c 
 		return errors.Wrapf(err, "failure handling for namespaces")
 	}
 
-	c.ResyncAt = time.Now().Add(c.ResyncDelay)
+	if resync {
+		c.ResyncAt = time.Now().Add(c.ResyncDelay)
+	}
 
 	return nil
 }
@@ -260,18 +265,19 @@ func (r *ManagedConnectorClusterReconciler) clusterById(id string) *Cluster {
 		cluster := v
 
 		if cluster.Parameters.ClusterID == id {
-			return &cluster
+			return cluster
 		}
 	}
 
 	return nil
 }
 
-func (r *ManagedConnectorClusterReconciler) cluster(ctx context.Context, mcc *cosv2.ManagedConnectorCluster) (Cluster, error) {
+func (r *ManagedConnectorClusterReconciler) cluster(ctx context.Context, mcc *cosv2.ManagedConnectorCluster) (*Cluster, error) {
 	named := resources.AsNamespacedName(mcc)
 
-	if c, ok := r.clients[named]; ok {
-		return c, nil
+	if v, ok := r.clients[named]; ok {
+		cluster := v
+		return cluster, nil
 	}
 
 	secret := corev1.Secret{
@@ -282,12 +288,12 @@ func (r *ManagedConnectorClusterReconciler) cluster(ctx context.Context, mcc *co
 	}
 
 	if err := resources.Get(ctx, r, &secret); err != nil {
-		return Cluster{}, err
+		return nil, err
 	}
 
 	params, err := secrets.Decode[AddonParameters](secret)
 	if err != nil {
-		return Cluster{}, err
+		return nil, err
 	}
 
 	c, err := fleetmanager.NewClient(ctx, fleetmanager.Config{
@@ -300,10 +306,10 @@ func (r *ManagedConnectorClusterReconciler) cluster(ctx context.Context, mcc *co
 	})
 
 	if err != nil {
-		return Cluster{}, err
+		return nil, err
 	}
 
-	answer := Cluster{
+	answer := &Cluster{
 		Client:      c,
 		Parameters:  params,
 		ResyncDelay: mcc.Spec.ResyncDelay.Duration,

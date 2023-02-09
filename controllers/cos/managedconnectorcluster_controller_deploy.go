@@ -18,15 +18,17 @@ import (
 
 func (r *ManagedConnectorClusterReconciler) deployNamespaces(
 	ctx context.Context,
-	c Cluster,
+	cluster *Cluster,
 	gv int64,
 ) error {
 	r.l.Info("Polling namespaces", "gv", gv)
 
-	namespaces, err := c.GetNamespaces(ctx, gv)
+	namespaces, err := cluster.GetNamespaces(ctx, gv)
 	if err != nil {
 		return errors.Wrapf(err, "failure polling for namespaces")
 	}
+
+	r.l.Info("Polling namespaces", "gv", gv, "count", len(namespaces))
 
 	for i := range namespaces {
 		r.l.Info("namespace", "id", namespaces[i].Id, "revision", namespaces[i].ResourceVersion)
@@ -34,15 +36,21 @@ func (r *ManagedConnectorClusterReconciler) deployNamespaces(
 		ns := corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "mctr-" + namespaces[i].Id,
-				Labels: map[string]string{
-					cosmeta.MetaClusterID:         c.Parameters.ClusterID,
-					cosmeta.MetaNamespaceID:       namespaces[i].Id,
-					cosmeta.MetaNamespaceRevision: fmt.Sprintf("%d", namespaces[i].ResourceVersion),
-				},
 			},
 		}
 
+		if err := resources.Get(ctx, r, &ns); err != nil && !k8serrors.IsNotFound(err) {
+			return err
+		}
+
 		newNs := ns.DeepCopy()
+		newNs.Labels = map[string]string{
+			cosmeta.MetaClusterID:   cluster.Parameters.ClusterID,
+			cosmeta.MetaNamespaceID: namespaces[i].Id,
+		}
+		newNs.Annotations = map[string]string{
+			cosmeta.MetaNamespaceRevision: fmt.Sprintf("%d", namespaces[i].ResourceVersion),
+		}
 
 		patched, err := resources.Apply(ctx, r.Client, &ns, newNs)
 		if err != nil {
@@ -61,7 +69,7 @@ func (r *ManagedConnectorClusterReconciler) deployNamespaces(
 
 func (r *ManagedConnectorClusterReconciler) deployConnectors(
 	ctx context.Context,
-	cluster Cluster,
+	cluster *Cluster,
 	gv int64,
 ) error {
 	r.l.Info("Polling connectors", "gv", gv)
@@ -70,6 +78,8 @@ func (r *ManagedConnectorClusterReconciler) deployConnectors(
 	if err != nil {
 		return errors.Wrapf(err, "failure polling for connectors")
 	}
+
+	r.l.Info("Polling connectors", "gv", gv, "count", len(connectors))
 
 	for i := range connectors {
 		r.l.Info("connector", "id", connectors[i].Id, "revision", connectors[i].Metadata.ResourceVersion)
