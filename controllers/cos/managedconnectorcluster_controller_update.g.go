@@ -6,11 +6,8 @@ import (
 	cosv2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/internal/api/controlplane"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetmanager"
-	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/pointer"
-	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (r *ManagedConnectorClusterReconciler) updateClusterStatus(
@@ -29,13 +26,13 @@ func (r *ManagedConnectorClusterReconciler) updateClusterStatus(
 		Operators:  make([]controlplane.ConnectorClusterStatusOperatorsInner, 0),
 	}
 
-	resources := corev1.NamespaceList{}
-	if err := r.List(ctx, &resources, client.MatchingLabels{cosmeta.MetaClusterID: c.Parameters.ClusterID}); err != nil {
+	namespaces, err := r.namespaces(ctx, c)
+	if err != nil {
 		return err
 	}
 
-	for n := range resources.Items {
-		status.Namespaces = append(status.Namespaces, fleetmanager.PresentConnectorNamespaceDeploymentStatus(resources.Items[n]))
+	for n := range namespaces {
+		status.Namespaces = append(status.Namespaces, fleetmanager.PresentConnectorNamespaceDeploymentStatus(namespaces[n]))
 	}
 
 	return c.Client.UpdateClusterStatus(ctx, status)
@@ -50,13 +47,13 @@ func (r *ManagedConnectorClusterReconciler) updateConnectorsStatus(
 		return errors.Wrapf(err, "unable to find cluster with id %s/%s", res.Namespace, res.Name)
 	}
 
-	resources := cosv2.ManagedConnectorList{}
-	if err := r.List(ctx, &resources, client.MatchingLabels{cosmeta.MetaClusterID: c.Parameters.ClusterID}); err != nil {
+	connectors, err := r.connectors(ctx, c)
+	if err != nil {
 		return err
 	}
 
-	for i := range resources.Items {
-		connector := resources.Items[i]
+	for i := range connectors {
+		connector := connectors[i]
 		status := fleetmanager.PresentConnectorDeploymentStatus(connector)
 
 		if err := c.Client.UpdateConnectorDeploymentStatus(ctx, connector.Spec.DeploymentID, status); err != nil {

@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"strconv"
 	"time"
 )
 
@@ -177,9 +176,8 @@ func (r *ManagedConnectorClusterReconciler) pollAndApply(ctx context.Context, c 
 
 	now := time.Now()
 	resync := now.After(c.ResyncAt)
-	options := client.MatchingLabels{cosmeta.MetaClusterID: c.Parameters.ClusterID}
 
-	r.l.Info("poll", "now", now.String(), "resyncAt", c.ResyncAt.String(), "resync", resync)
+	r.l.Info("poll", "resyncIn", c.ResyncAt.Sub(now).String(), "resync", resync)
 
 	//
 	// Namespaces
@@ -188,69 +186,45 @@ func (r *ManagedConnectorClusterReconciler) pollAndApply(ctx context.Context, c 
 	var gvNamespace int64
 
 	if !resync {
-		namespaces := corev1.NamespaceList{}
-		if err := r.List(ctx, &namespaces, options); err != nil {
+		namespaces, err := r.namespaces(ctx, c)
+		if err != nil {
 			return err
 		}
 
-		for i := range namespaces.Items {
-			namespace := namespaces.Items[i]
-
-			if len(namespace.Annotations) == 0 {
-				continue
-			}
-
-			if r, ok := namespace.Annotations[cosmeta.MetaNamespaceRevision]; ok {
-				rev, err := strconv.ParseInt(r, 10, 64)
-				if err != nil {
-					return err
-				}
-
-				if rev > gvNamespace {
-					gvNamespace = rev
-				}
-			}
+		rev, err := computeMaxRevision(namespaces, cosmeta.MetaNamespaceRevision)
+		if err != nil {
+			return err
 		}
+
+		gvNamespace = rev
 	}
 
 	if err := r.deployNamespaces(ctx, c, gvNamespace); err != nil {
-		return errors.Wrapf(err, "failure handling for namespaces")
+		return errors.Wrapf(err, "failure handling namespaces")
 	}
 
 	//
 	// Connectors
 	//
 
-	connectors := cosv2.ManagedConnectorList{}
-	if err := r.List(ctx, &connectors, options); err != nil {
-		return err
-	}
-
 	var gvConnector int64
 
 	if !resync {
-		for i := range connectors.Items {
-			connector := connectors.Items[i]
-
-			if len(connector.Annotations) == 0 {
-				continue
-			}
-
-			if r, ok := connector.Annotations[cosmeta.MetaDeploymentRevision]; ok {
-				rev, err := strconv.ParseInt(r, 10, 64)
-				if err != nil {
-					return err
-				}
-
-				if rev > gvConnector {
-					gvConnector = rev
-				}
-			}
+		connectors, err := r.connectors(ctx, c)
+		if err != nil {
+			return err
 		}
+
+		rev, err := computeMaxRevision(connectors, cosmeta.MetaDeploymentRevision)
+		if err != nil {
+			return err
+		}
+
+		gvConnector = rev
 	}
 
 	if err := r.deployConnectors(ctx, c, gvConnector); err != nil {
-		return errors.Wrapf(err, "failure handling for namespaces")
+		return errors.Wrapf(err, "failure handling connectors deployment")
 	}
 
 	if resync {
@@ -313,11 +287,37 @@ func (r *ManagedConnectorClusterReconciler) cluster(ctx context.Context, mcc *co
 		Client:      c,
 		Parameters:  params,
 		ResyncDelay: mcc.Spec.ResyncDelay.Duration,
-		ResyncAt:    time.Now().Add(mcc.Spec.ResyncDelay.Duration),
+		ResyncAt:    time.Time{},
 	}
 
 	r.clients[named] = answer
 
 	return answer, nil
 
+}
+
+func (r *ManagedConnectorClusterReconciler) namespaces(ctx context.Context, c *Cluster) ([]corev1.Namespace, error) {
+	options := client.MatchingLabels{
+		cosmeta.MetaClusterID: c.Parameters.ClusterID,
+	}
+
+	namespaces := corev1.NamespaceList{}
+	if err := r.List(ctx, &namespaces, options); err != nil {
+		return nil, err
+	}
+
+	return namespaces.Items, nil
+}
+
+func (r *ManagedConnectorClusterReconciler) connectors(ctx context.Context, c *Cluster) ([]cosv2.ManagedConnector, error) {
+	options := client.MatchingLabels{
+		cosmeta.MetaClusterID: c.Parameters.ClusterID,
+	}
+
+	connectors := cosv2.ManagedConnectorList{}
+	if err := r.List(ctx, &connectors, options); err != nil {
+		return nil, err
+	}
+
+	return connectors.Items, nil
 }
