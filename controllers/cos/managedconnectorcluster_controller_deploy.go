@@ -100,7 +100,7 @@ func (r *ManagedConnectorClusterReconciler) deployConnectors(
 			cosmeta.MetaDeploymentID:       *connectors[i].Id,
 			cosmeta.MetaDeploymentRevision: fmt.Sprintf("%d", connectors[i].Metadata.ResourceVersion),
 			cosmeta.MetaConnectorID:        *connectors[i].Spec.ConnectorId,
-			cosmeta.MetaConnectorRevision:  fmt.Sprintf("%d", connectors[i].Spec.ConnectorResourceVersion),
+			cosmeta.MetaConnectorRevision:  fmt.Sprintf("%d", *connectors[i].Spec.ConnectorResourceVersion),
 			cosmeta.MetaUnitOfWork:         uow,
 			cosmeta.MetaOperatorType:       cosmeta.OperatorTypeCamel,
 		}
@@ -133,7 +133,7 @@ func (r *ManagedConnectorClusterReconciler) deployConnectors(
 			cosmeta.MetaDeploymentID:       *connectors[i].Id,
 			cosmeta.MetaDeploymentRevision: fmt.Sprintf("%d", connectors[i].Metadata.ResourceVersion),
 			cosmeta.MetaConnectorID:        *connectors[i].Spec.ConnectorId,
-			cosmeta.MetaConnectorRevision:  fmt.Sprintf("%d", connectors[i].Spec.ConnectorResourceVersion),
+			cosmeta.MetaConnectorRevision:  fmt.Sprintf("%d", *connectors[i].Spec.ConnectorResourceVersion),
 			cosmeta.MetaUnitOfWork:         uow,
 			cosmeta.MetaOperatorType:       cosmeta.OperatorTypeCamel,
 		}
