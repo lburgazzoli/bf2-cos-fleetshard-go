@@ -26,7 +26,7 @@ spec:
             - 'agent'
             - 'run'
             - '--operator-id'
-            - 'fleetshard-operator-camel'
+            - 'fleetshard-agent'
             - '--operator-group'
             - 'cos.bf2.dev'
           image: 'quay.io/lburgazzoli/cos-fleetshard:latest'
