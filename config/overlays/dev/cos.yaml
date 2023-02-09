@@ -5,4 +5,5 @@ metadata:
   name: 'lb-dev'
 spec:
   secret: 'addon-connectors-operator-parameters'
-  pollDelay: '5s'
+  pollDelay: '10s'
+  resyncDelay: '60s'
