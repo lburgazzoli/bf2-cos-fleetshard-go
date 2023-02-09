@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"strconv"
+	"time"
 )
 
 // ManagedConnectorClusterReconciler reconciles a ManagedConnector object
@@ -174,34 +175,37 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 
 func (r *ManagedConnectorClusterReconciler) pollAndApply(ctx context.Context, c Cluster) error {
 
+	resync := time.Now().After(c.ResyncAt)
 	options := client.MatchingLabels{cosmeta.MetaClusterID: c.Parameters.ClusterID}
 
 	//
 	// Namespaces
 	//
 
-	namespaces := corev1.NamespaceList{}
-	if err := r.List(ctx, &namespaces, options); err != nil {
-		return err
-	}
-
 	var gvNamespace int64
 
-	for i := range namespaces.Items {
-		namespace := namespaces.Items[i]
-
-		if len(namespace.Annotations) == 0 {
-			continue
+	if !resync {
+		namespaces := corev1.NamespaceList{}
+		if err := r.List(ctx, &namespaces, options); err != nil {
+			return err
 		}
 
-		if r, ok := namespace.Annotations[cosmeta.MetaNamespaceRevision]; ok {
-			rev, err := strconv.ParseInt(r, 10, 64)
-			if err != nil {
-				return err
+		for i := range namespaces.Items {
+			namespace := namespaces.Items[i]
+
+			if len(namespace.Annotations) == 0 {
+				continue
 			}
 
-			if rev > gvNamespace {
-				gvNamespace = rev
+			if r, ok := namespace.Annotations[cosmeta.MetaNamespaceRevision]; ok {
+				rev, err := strconv.ParseInt(r, 10, 64)
+				if err != nil {
+					return err
+				}
+
+				if rev > gvNamespace {
+					gvNamespace = rev
+				}
 			}
 		}
 	}
@@ -221,21 +225,23 @@ func (r *ManagedConnectorClusterReconciler) pollAndApply(ctx context.Context, c 
 
 	var gvConnector int64
 
-	for i := range connectors.Items {
-		connector := connectors.Items[i]
+	if !resync {
+		for i := range connectors.Items {
+			connector := connectors.Items[i]
 
-		if len(connector.Annotations) == 0 {
-			continue
-		}
-
-		if r, ok := connector.Annotations[cosmeta.MetaConnectorRevision]; ok {
-			rev, err := strconv.ParseInt(r, 10, 64)
-			if err != nil {
-				return err
+			if len(connector.Annotations) == 0 {
+				continue
 			}
 
-			if rev > gvConnector {
-				gvConnector = rev
+			if r, ok := connector.Annotations[cosmeta.MetaConnectorRevision]; ok {
+				rev, err := strconv.ParseInt(r, 10, 64)
+				if err != nil {
+					return err
+				}
+
+				if rev > gvConnector {
+					gvConnector = rev
+				}
 			}
 		}
 	}
@@ -243,6 +249,8 @@ func (r *ManagedConnectorClusterReconciler) pollAndApply(ctx context.Context, c 
 	if err := r.deployConnectors(ctx, c, gvConnector); err != nil {
 		return errors.Wrapf(err, "failure handling for namespaces")
 	}
+
+	c.ResyncAt = time.Now().Add(c.ResyncDelay)
 
 	return nil
 }
@@ -296,8 +304,10 @@ func (r *ManagedConnectorClusterReconciler) cluster(ctx context.Context, mcc *co
 	}
 
 	answer := Cluster{
-		Client:     c,
-		Parameters: params,
+		Client:      c,
+		Parameters:  params,
+		ResyncDelay: mcc.Spec.ResyncDelay.Duration,
+		ResyncAt:    time.Now().Add(mcc.Spec.ResyncDelay.Duration),
 	}
 
 	r.clients[named] = answer

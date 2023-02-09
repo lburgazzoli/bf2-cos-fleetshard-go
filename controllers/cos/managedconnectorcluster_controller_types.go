@@ -3,6 +3,7 @@ package cos
 import (
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetmanager"
 	"net/url"
+	"time"
 )
 
 type AddonParameters struct {
@@ -18,4 +19,7 @@ type Cluster struct {
 	fleetmanager.Client
 
 	Parameters AddonParameters
+
+	ResyncDelay time.Duration
+	ResyncAt    time.Time
 }

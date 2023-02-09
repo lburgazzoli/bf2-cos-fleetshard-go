@@ -33,6 +33,10 @@ type ManagedConnectorClusterSpec struct {
 	// +optional
 	// +kubebuilder:default:="15s"
 	PollDelay metav1.Duration `json:"pollDelay"`
+
+	// +optional
+	// +kubebuilder:default:="60s"
+	ResyncDelay metav1.Duration `json:"resyncDelay"`
 }
 
 // ManagedConnectorClusterStatus ---
