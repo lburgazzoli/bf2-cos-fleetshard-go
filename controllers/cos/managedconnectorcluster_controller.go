@@ -117,17 +117,7 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 		return ctrl.Result{}, nil
 	}
 
-	mcc.Status.ObservedGeneration = mcc.Generation
-	mcc.Status.Phase = "Running"
-
-	if err := r.updateClusterStatus(ctx, mcc); err != nil {
-		return ctrl.Result{}, err
-	}
-	if err := r.updateConnectorsStatus(ctx, mcc); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	err := r.pollAndApply(ctx, mcc)
+	c, err := r.cluster(ctx, mcc)
 	if err != nil {
 		meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
 			Type:    "Triggered",
@@ -136,12 +126,36 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 			Message: err.Error(),
 		})
 	} else {
-		meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
-			Type:    "Triggered",
-			Status:  metav1.ConditionTrue,
-			Reason:  "Scheduled",
-			Message: "Scheduled",
-		})
+		mcc.Status.ObservedGeneration = mcc.Generation
+		mcc.Status.Phase = "Running"
+		mcc.Status.ClusterID = c.Parameters.ClusterID
+
+		if c.Parameters.BaseURL != nil {
+			mcc.Status.ControlPlaneURL = c.Parameters.BaseURL.String()
+		}
+
+		if err := r.updateClusterStatus(ctx, mcc); err != nil {
+			return ctrl.Result{}, err
+		}
+		if err := r.updateConnectorsStatus(ctx, mcc); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		if err := r.pollAndApply(ctx, c); err != nil {
+			meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
+				Type:    "Triggered",
+				Status:  metav1.ConditionFalse,
+				Reason:  "Error",
+				Message: err.Error(),
+			})
+		} else {
+			meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
+				Type:    "Triggered",
+				Status:  metav1.ConditionTrue,
+				Reason:  "Scheduled",
+				Message: "Scheduled",
+			})
+		}
 	}
 
 	if _, err := resources.PatchStatus(ctx, r.Client, mccRef, mcc); err != nil {
@@ -156,12 +170,7 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 	return ctrl.Result{RequeueAfter: mcc.Spec.PollDelay.Duration}, nil
 }
 
-func (r *ManagedConnectorClusterReconciler) pollAndApply(ctx context.Context, mcc *cosv2.ManagedConnectorCluster) error {
-	c, err := r.cluster(ctx, mcc)
-	if err != nil {
-		return err
-	}
-
+func (r *ManagedConnectorClusterReconciler) pollAndApply(ctx context.Context, c Cluster) error {
 	if err := r.deployNamespaces(ctx, c, 0); err != nil {
 		return errors.Wrapf(err, "failure handling for namespaces")
 	}

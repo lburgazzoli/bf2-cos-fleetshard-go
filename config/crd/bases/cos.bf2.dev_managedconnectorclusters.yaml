@@ -52,6 +52,10 @@ spec:
           status:
             description: ManagedConnectorClusterStatus ---
             properties:
+              ControlPlaneUrl:
+                type: string
+              clusterId:
+                type: string
               conditions:
                 items:
                   description: "Condition contains details for one aspect of the current
