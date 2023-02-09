@@ -2,6 +2,7 @@ package cos
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/rs/xid"
@@ -140,19 +141,34 @@ func (r *ManagedConnectorClusterReconciler) deployConnectors(
 		newS.Data = make(map[string][]byte)
 		newS.StringData = make(map[string]string)
 
+		cs, err := base64.StdEncoding.DecodeString(connectors[i].Spec.ServiceAccount.ClientSecret)
+		if err != nil {
+			return err
+		}
+
 		newS.Data[cosmeta.ServiceAccountClientID] = []byte(connectors[i].Spec.ServiceAccount.ClientId)
-		newS.Data[cosmeta.ServiceAccountClientSecret] = []byte(connectors[i].Spec.ServiceAccount.ClientSecret)
+		newS.Data[cosmeta.ServiceAccountClientSecret] = cs
 
 		for k, v := range connectors[i].Spec.ConnectorSpec {
 			switch d := v.(type) {
 			case map[string]interface{}:
 				switch dv := d["value"].(type) {
 				case string:
-					connectors[i].Spec.ConnectorSpec[k] = fmt.Sprintf("{{base64:%s}}", k)
-					newS.Data[k] = []byte(dv)
+					val, err := base64.StdEncoding.DecodeString(dv)
+					if err != nil {
+						return err
+					}
+
+					connectors[i].Spec.ConnectorSpec[k] = fmt.Sprintf("{{%s}}", k)
+					newS.Data[k] = val
 				case []byte:
-					connectors[i].Spec.ConnectorSpec[k] = fmt.Sprintf("{{base64:%s}}", k)
-					newS.Data[k] = dv
+					val, err := base64.StdEncoding.DecodeString(string(dv))
+					if err != nil {
+						return err
+					}
+
+					connectors[i].Spec.ConnectorSpec[k] = fmt.Sprintf("{{%s}}", k)
+					newS.Data[k] = val
 				default:
 					return fmt.Errorf("unsupported value type %v", dv)
 				}
