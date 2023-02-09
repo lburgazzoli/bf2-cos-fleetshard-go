@@ -31,6 +31,18 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+    - ""
+  resources:
+    - namespaces
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
 #
 # camel-k
 #
