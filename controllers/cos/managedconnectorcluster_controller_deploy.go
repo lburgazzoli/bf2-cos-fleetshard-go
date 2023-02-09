@@ -21,6 +21,8 @@ func (r *ManagedConnectorClusterReconciler) deployNamespaces(
 	c Cluster,
 	gv int64,
 ) error {
+	r.l.Info("Polling namespaces", "gv", gv)
+
 	namespaces, err := c.GetNamespaces(ctx, gv)
 	if err != nil {
 		return errors.Wrapf(err, "failure polling for namespaces")
@@ -62,6 +64,8 @@ func (r *ManagedConnectorClusterReconciler) deployConnectors(
 	cluster Cluster,
 	gv int64,
 ) error {
+	r.l.Info("Polling connectors", "gv", gv)
+
 	connectors, err := cluster.GetConnectors(ctx, gv)
 	if err != nil {
 		return errors.Wrapf(err, "failure polling for connectors")
@@ -95,14 +99,17 @@ func (r *ManagedConnectorClusterReconciler) deployConnectors(
 		uow := xid.New().String()
 
 		newC.Labels = map[string]string{
-			cosmeta.MetaClusterID:          cluster.Parameters.ClusterID,
-			cosmeta.MetaNamespaceID:        *connectors[i].Spec.NamespaceId,
-			cosmeta.MetaDeploymentID:       *connectors[i].Id,
-			cosmeta.MetaDeploymentRevision: fmt.Sprintf("%d", connectors[i].Metadata.ResourceVersion),
-			cosmeta.MetaConnectorID:        *connectors[i].Spec.ConnectorId,
+			cosmeta.MetaClusterID:    cluster.Parameters.ClusterID,
+			cosmeta.MetaNamespaceID:  *connectors[i].Spec.NamespaceId,
+			cosmeta.MetaDeploymentID: *connectors[i].Id,
+			cosmeta.MetaConnectorID:  *connectors[i].Spec.ConnectorId,
+			cosmeta.MetaOperatorType: cosmeta.OperatorTypeCamel,
+		}
+
+		newC.Annotations = map[string]string{
 			cosmeta.MetaConnectorRevision:  fmt.Sprintf("%d", *connectors[i].Spec.ConnectorResourceVersion),
+			cosmeta.MetaDeploymentRevision: fmt.Sprintf("%d", connectors[i].Metadata.ResourceVersion),
 			cosmeta.MetaUnitOfWork:         uow,
-			cosmeta.MetaOperatorType:       cosmeta.OperatorTypeCamel,
 		}
 
 		newC.Spec.ClusterID = cluster.Parameters.ClusterID
@@ -128,14 +135,17 @@ func (r *ManagedConnectorClusterReconciler) deployConnectors(
 		}
 
 		newS.Labels = map[string]string{
-			cosmeta.MetaClusterID:          cluster.Parameters.ClusterID,
-			cosmeta.MetaNamespaceID:        *connectors[i].Spec.NamespaceId,
-			cosmeta.MetaDeploymentID:       *connectors[i].Id,
-			cosmeta.MetaDeploymentRevision: fmt.Sprintf("%d", connectors[i].Metadata.ResourceVersion),
-			cosmeta.MetaConnectorID:        *connectors[i].Spec.ConnectorId,
+			cosmeta.MetaClusterID:    cluster.Parameters.ClusterID,
+			cosmeta.MetaNamespaceID:  *connectors[i].Spec.NamespaceId,
+			cosmeta.MetaDeploymentID: *connectors[i].Id,
+			cosmeta.MetaConnectorID:  *connectors[i].Spec.ConnectorId,
+			cosmeta.MetaOperatorType: cosmeta.OperatorTypeCamel,
+		}
+
+		newS.Annotations = map[string]string{
 			cosmeta.MetaConnectorRevision:  fmt.Sprintf("%d", *connectors[i].Spec.ConnectorResourceVersion),
+			cosmeta.MetaDeploymentRevision: fmt.Sprintf("%d", connectors[i].Metadata.ResourceVersion),
 			cosmeta.MetaUnitOfWork:         uow,
-			cosmeta.MetaOperatorType:       cosmeta.OperatorTypeCamel,
 		}
 
 		newS.Data = make(map[string][]byte)

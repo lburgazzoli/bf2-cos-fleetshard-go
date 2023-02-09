@@ -7,6 +7,7 @@ import (
 	cosv2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetmanager"
+	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/defaults"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources/secrets"
@@ -23,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"strconv"
 )
 
 // ManagedConnectorClusterReconciler reconciles a ManagedConnector object
@@ -171,11 +173,74 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 }
 
 func (r *ManagedConnectorClusterReconciler) pollAndApply(ctx context.Context, c Cluster) error {
-	if err := r.deployNamespaces(ctx, c, 0); err != nil {
+
+	options := client.MatchingLabels{cosmeta.MetaClusterID: c.Parameters.ClusterID}
+
+	//
+	// Namespaces
+	//
+
+	namespaces := corev1.NamespaceList{}
+	if err := r.List(ctx, &namespaces, options); err != nil {
+		return err
+	}
+
+	var gvNamespace int64
+
+	for i := range namespaces.Items {
+		namespace := namespaces.Items[i]
+
+		if len(namespace.Annotations) == 0 {
+			continue
+		}
+
+		if r, ok := namespace.Annotations[cosmeta.MetaNamespaceRevision]; ok {
+			rev, err := strconv.ParseInt(r, 10, 64)
+			if err != nil {
+				return err
+			}
+
+			if rev > gvNamespace {
+				gvNamespace = rev
+			}
+		}
+	}
+
+	if err := r.deployNamespaces(ctx, c, gvNamespace); err != nil {
 		return errors.Wrapf(err, "failure handling for namespaces")
 	}
 
-	if err := r.deployConnectors(ctx, c, 0); err != nil {
+	//
+	// Connectors
+	//
+
+	connectors := cosv2.ManagedConnectorList{}
+	if err := r.List(ctx, &connectors, options); err != nil {
+		return err
+	}
+
+	var gvConnector int64
+
+	for i := range connectors.Items {
+		connector := connectors.Items[i]
+
+		if len(connector.Annotations) == 0 {
+			continue
+		}
+
+		if r, ok := connector.Annotations[cosmeta.MetaConnectorRevision]; ok {
+			rev, err := strconv.ParseInt(r, 10, 64)
+			if err != nil {
+				return err
+			}
+
+			if rev > gvConnector {
+				gvConnector = rev
+			}
+		}
+	}
+
+	if err := r.deployConnectors(ctx, c, gvConnector); err != nil {
 		return errors.Wrapf(err, "failure handling for namespaces")
 	}
 
