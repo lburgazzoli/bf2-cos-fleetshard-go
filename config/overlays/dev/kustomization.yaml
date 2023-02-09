@@ -2,7 +2,7 @@ images:
   - name: docker.io/apache/camel-k
     newTag: 1.11.1
   - name: quay.io/lburgazzoli/cos-fleetshard
-    digest: sha256:67ebb1804a1e1edb711cc92e04fa0d38a54528c090db1cdbeeb35123dfb57f3f
+    digest: sha256:1c65ac3555906e5a32fcc7189e787e2f88a769ccd044d65cd414b63fd792efa3
 resources:
   - ../../default
   - cos.yaml
