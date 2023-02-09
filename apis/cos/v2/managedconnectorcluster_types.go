@@ -41,7 +41,7 @@ type ManagedConnectorClusterStatus struct {
 	Conditions         []metav1.Condition `json:"conditions,omitempty"`
 	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
 	ClusterID          string             `json:"clusterId,omitempty"`
-	ControlPlaneURL    string             `json:"ControlPlaneUrl,omitempty"`
+	ControlPlaneURL    string             `json:"controlPlaneUrl,omitempty"`
 }
 
 // +kubebuilder:object:root=true

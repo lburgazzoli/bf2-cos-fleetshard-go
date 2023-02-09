@@ -52,8 +52,6 @@ spec:
           status:
             description: ManagedConnectorClusterStatus ---
             properties:
-              ControlPlaneUrl:
-                type: string
               clusterId:
                 type: string
               conditions:
@@ -124,6 +122,8 @@ spec:
                   - type
                   type: object
                 type: array
+              controlPlaneUrl:
+                type: string
               observedGeneration:
                 format: int64
                 type: integer
