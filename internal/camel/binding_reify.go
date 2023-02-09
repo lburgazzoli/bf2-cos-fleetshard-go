@@ -145,7 +145,7 @@ func reify(rc *controller.ReconciliationContext) (kamelv1alpha1.KameletBinding, 
 			Property("bootstrapServers", rc.Connector.Spec.Kafka.URL).
 			Property("valueSerializer", "org.bf2.cos.connector.camel.serdes.bytes.ByteArraySerializer").
 			PropertyPlaceholder("user", cosmeta.ServiceAccountClientID).
-			PropertyPlaceholder("password", cosmeta.ServiceAccountClientSecret).
+			PropertyPlaceholder("password", "base64:"+cosmeta.ServiceAccountClientSecret).
 			PropertiesFrom(config.Properties, meta.Kamelets.Kafka.Prefix).
 			Build()
 
@@ -165,7 +165,7 @@ func reify(rc *controller.ReconciliationContext) (kamelv1alpha1.KameletBinding, 
 			Property("consumerGroup", rc.Connector.Spec.ConnectorID).
 			Property("valueDeserializer", "org.bf2.cos.connector.camel.serdes.bytes.ByteArrayDeserializer").
 			PropertyPlaceholder("user", cosmeta.ServiceAccountClientID).
-			PropertyPlaceholder("password", cosmeta.ServiceAccountClientSecret).
+			PropertyPlaceholder("password", "base64:"+cosmeta.ServiceAccountClientSecret).
 			PropertiesFrom(config.Properties, meta.Kamelets.Kafka.Prefix).
 			Build()
 
