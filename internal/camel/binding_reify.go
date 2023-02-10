@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/internal/camel/endpoints"
 	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/pointer"
 	"sort"
 
 	kamelv1 "github.com/apache/camel-k/pkg/apis/camel/v1"
@@ -207,6 +208,7 @@ func reify(rc *controller.ReconciliationContext) (kamelv1alpha1.KameletBinding, 
 		return binding, bindingSecret, bindingConfig, err
 	}
 
+	binding.Spec.Replicas = pointer.Of(int32(1))
 	binding.Spec.Integration = &kamelv1.IntegrationSpec{
 		Profile: kamelv1.TraitProfileOpenShift,
 		Traits: kamelv1.Traits{

@@ -85,10 +85,11 @@ type ManagedConnectorSpec struct {
 
 // ManagedConnectorStatus defines the observed state of ManagedConnector
 type ManagedConnectorStatus struct {
-	Phase              string      `json:"phase"`
-	Conditions         []Condition `json:"conditions,omitempty"`
-	ObservedGeneration int64       `json:"observedGeneration,omitempty"`
-	OperatorID         string      `json:"operatorId"`
+	Phase                             string      `json:"phase"`
+	Conditions                        []Condition `json:"conditions,omitempty"`
+	ObservedGeneration                int64       `json:"observedGeneration,omitempty"`
+	ObservedDeploymentResourceVersion int64       `json:"observedDeploymentResourceVersion"`
+	OperatorID                        string      `json:"operatorId"`
 }
 
 //+kubebuilder:object:root=true

@@ -7,6 +7,7 @@ import (
 	cos "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/conditions"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/pointer"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,6 +57,9 @@ func Apply(rc controller.ReconciliationContext) (bool, error) {
 	// Update binding & secret
 	//
 
+	rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
+	rc.Connector.Status.ObservedDeploymentResourceVersion = rc.Connector.Spec.DeploymentResourceVersion
+
 	switch rc.Connector.Spec.DesiredState {
 	case cos.DesiredStateReady:
 		if err := handleReady(rc, &binding, &bindingSecret, &bindingConfig); err != nil {
@@ -81,13 +85,6 @@ func Apply(rc controller.ReconciliationContext) (bool, error) {
 		return true, err
 	}
 
-	rc.Connector.Status.ObservedGeneration = rc.Connector.Generation
-
-	for i := range rc.Connector.Status.Conditions {
-		rc.Connector.Status.Conditions[i].ObservedGeneration = rc.Connector.Status.ObservedGeneration
-		rc.Connector.Status.Conditions[i].ResourceRevision = rc.Connector.Spec.DeploymentResourceVersion
-	}
-
 	return true, nil
 }
 
@@ -98,60 +95,64 @@ func handleReady(
 	bindingConfig *corev1.ConfigMap,
 ) error {
 
-	// TODO: add methods to reduce conditions handling duplication
+	c := conditions.Find(rc.Connector.Status.Conditions, conditions.ConditionTypeProvisioned)
+	if c == nil {
+		c = &cos.Condition{}
+		c.Type = conditions.ConditionTypeProvisioned
+		c.Status = metav1.ConditionFalse
+		c.Reason = conditions.ConditionReasonProvisioning
+		c.Message = conditions.ConditionReasonProvisioning
+	}
 
-	conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeProvisioned, func(condition *cos.Condition) {
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = conditions.ConditionReasonProvisioning
-		condition.Message = conditions.ConditionReasonProvisioning
-	})
+	c.ObservedGeneration = rc.Connector.Status.ObservedGeneration
+	c.ResourceRevision = rc.Connector.Status.ObservedDeploymentResourceVersion
 
 	b, bs, bc, err := reify(&rc)
 	if err != nil {
-		conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeProvisioned, func(condition *cos.Condition) {
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = conditions.ConditionReasonError
-			condition.Message = err.Error()
-		})
+		c.Status = metav1.ConditionFalse
+		c.Reason = conditions.ConditionReasonError
+		c.Message = err.Error()
+
+		conditions.Set(&rc.Connector.Status.Conditions, *c)
 
 		return err
 	}
 
 	if err := patchDependant(rc, bindingSecret, &bs); err != nil {
-		conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeProvisioned, func(condition *cos.Condition) {
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = conditions.ConditionReasonError
-			condition.Message = err.Error()
-		})
+		c.Status = metav1.ConditionFalse
+		c.Reason = conditions.ConditionReasonError
+		c.Message = err.Error()
+
+		conditions.Set(&rc.Connector.Status.Conditions, *c)
 
 		return errors.Wrap(err, "unable to reconcile binding secrete")
 	}
 
 	if err := patchDependant(rc, bindingConfig, &bc); err != nil {
-		conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeProvisioned, func(condition *cos.Condition) {
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = conditions.ConditionReasonError
-			condition.Message = err.Error()
-		})
+		c.Status = metav1.ConditionFalse
+		c.Reason = conditions.ConditionReasonError
+		c.Message = err.Error()
+
+		conditions.Set(&rc.Connector.Status.Conditions, *c)
 
 		return errors.Wrap(err, "unable to reconcile binding config")
 	}
 
 	if err := patchDependant(rc, binding, &b); err != nil {
-		conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeProvisioned, func(condition *cos.Condition) {
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = conditions.ConditionReasonError
-			condition.Message = err.Error()
-		})
+		c.Status = metav1.ConditionFalse
+		c.Reason = conditions.ConditionReasonError
+		c.Message = err.Error()
+
+		conditions.Set(&rc.Connector.Status.Conditions, *c)
 
 		return errors.Wrap(err, "unable to reconcile binding")
 	}
 
-	conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeProvisioned, func(condition *cos.Condition) {
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = conditions.ConditionReasonProvisioned
-		condition.Message = conditions.ConditionMessageProvisioned
-	})
+	c.Status = metav1.ConditionTrue
+	c.Reason = conditions.ConditionReasonProvisioned
+	c.Message = conditions.ConditionMessageProvisioned
+
+	conditions.Set(&rc.Connector.Status.Conditions, *c)
 
 	return nil
 }
@@ -164,43 +165,25 @@ func handleStop(
 	bindingConfig *corev1.ConfigMap,
 ) error {
 
-	// TODO: add methods to reduce conditions handling duplication
-
-	conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeProvisioned, func(condition *cos.Condition) {
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = conditions.ConditionReasonStopping
-		condition.Message = conditions.ConditionMessageStopping
+	conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeProvisioned, func(c *cos.Condition) {
+		c.Status = metav1.ConditionTrue
+		c.Reason = conditions.ConditionReasonProvisioned
+		c.Message = conditions.ConditionMessageProvisioned
+		c.ObservedGeneration = rc.Connector.Status.ObservedGeneration
+		c.ResourceRevision = rc.Connector.Status.ObservedDeploymentResourceVersion
 	})
 
-	deleted := 0
+	b := binding.DeepCopy()
+	b.Spec.Replicas = pointer.Of(int32(0))
 
-	for _, r := range []client.Object{binding, bindingSecret, bindingConfig} {
-		if err := rc.DeleteDependant(r); err != nil {
-			if k8serrors.IsNotFound(err) {
-				deleted++
-			} else {
-				conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeProvisioned, func(condition *cos.Condition) {
-					condition.Status = metav1.ConditionFalse
-					condition.Reason = conditions.ConditionReasonError
-					condition.Message = err.Error()
-				})
-
-				return err
-			}
-		}
-	}
-
-	if deleted == 3 {
-		conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeProvisioned, func(condition *cos.Condition) {
-			condition.Status = metav1.ConditionTrue
-			condition.Reason = conditions.ConditionReasonStopped
-			condition.Message = conditions.ConditionMessageStopped
+	if err := patchDependant(rc, binding, b); err != nil {
+		conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeProvisioned, func(c *cos.Condition) {
+			c.Status = metav1.ConditionFalse
+			c.Reason = conditions.ConditionReasonError
+			c.Message = err.Error()
 		})
-		conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeReady, func(condition *cos.Condition) {
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = conditions.ConditionReasonStopped
-			condition.Message = conditions.ConditionMessageStopped
-		})
+
+		return errors.Wrap(err, "unable to scale binding")
 	}
 
 	return nil
@@ -215,10 +198,19 @@ func handleDelete(
 
 	// TODO: add methods to reduce conditions handling duplication
 
-	conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeProvisioned, func(condition *cos.Condition) {
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = conditions.ConditionReasonDeleting
-		condition.Message = conditions.ConditionMessageDeleting
+	conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeProvisioned, func(c *cos.Condition) {
+		c.Status = metav1.ConditionTrue
+		c.Reason = conditions.ConditionReasonProvisioned
+		c.Message = conditions.ConditionMessageProvisioned
+		c.ObservedGeneration = rc.Connector.Status.ObservedGeneration
+		c.ResourceRevision = rc.Connector.Status.ObservedDeploymentResourceVersion
+	})
+	conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeReady, func(c *cos.Condition) {
+		c.Status = metav1.ConditionFalse
+		c.Reason = conditions.ConditionReasonDeleting
+		c.Message = conditions.ConditionReasonDeleting
+		c.ObservedGeneration = rc.Connector.Status.ObservedGeneration
+		c.ResourceRevision = rc.Connector.Status.ObservedDeploymentResourceVersion
 	})
 
 	deleted := 0
@@ -228,10 +220,12 @@ func handleDelete(
 			if k8serrors.IsNotFound(err) {
 				deleted++
 			} else {
-				conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeProvisioned, func(condition *cos.Condition) {
-					condition.Status = metav1.ConditionFalse
-					condition.Reason = conditions.ConditionReasonError
-					condition.Message = err.Error()
+				conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeReady, func(c *cos.Condition) {
+					c.Status = metav1.ConditionFalse
+					c.Reason = conditions.ConditionReasonError
+					c.Message = err.Error()
+					c.ObservedGeneration = rc.Connector.Status.ObservedGeneration
+					c.ResourceRevision = rc.Connector.Status.ObservedDeploymentResourceVersion
 				})
 				return err
 			}
@@ -239,15 +233,12 @@ func handleDelete(
 	}
 
 	if deleted == 3 {
-		conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeProvisioned, func(condition *cos.Condition) {
-			condition.Status = metav1.ConditionTrue
-			condition.Reason = conditions.ConditionReasonDeleted
-			condition.Message = conditions.ConditionMessageDeleted
-		})
-		conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeReady, func(condition *cos.Condition) {
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = conditions.ConditionReasonDeleted
-			condition.Message = conditions.ConditionReasonDeleted
+		conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeReady, func(c *cos.Condition) {
+			c.Status = metav1.ConditionFalse
+			c.Reason = conditions.ConditionReasonDeleted
+			c.Message = conditions.ConditionReasonDeleted
+			c.ObservedGeneration = rc.Connector.Status.ObservedGeneration
+			c.ResourceRevision = rc.Connector.Status.ObservedDeploymentResourceVersion
 		})
 	}
 

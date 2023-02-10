@@ -11,6 +11,7 @@ import (
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
 	cosconditions "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/conditions"
 	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/pointer"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -187,6 +188,34 @@ func extractDependantConditions(conditions *[]cosv2.Condition, binding kamelv1la
 		if err != nil {
 			return errors.Wrap(err, "unable to determine revision")
 		}
+	}
+
+	if pointer.Is(binding.Spec.Replicas, int32(0)) && pointer.Is(binding.Status.Replicas, int32(0)) {
+		cosconditions.Set(conditions, cosv2.Condition{
+			Condition: metav1.Condition{
+				Type:    cosconditions.ConditionTypeReady,
+				Status:  metav1.ConditionFalse,
+				Reason:  cosconditions.ConditionReasonStopped,
+				Message: cosconditions.ConditionReasonStopped,
+			},
+			ResourceRevision: gen,
+		})
+
+		return nil
+	}
+
+	if pointer.Is(binding.Spec.Replicas, int32(0)) && !pointer.Is(binding.Status.Replicas, int32(0)) {
+		cosconditions.Set(conditions, cosv2.Condition{
+			Condition: metav1.Condition{
+				Type:    cosconditions.ConditionTypeReady,
+				Status:  metav1.ConditionFalse,
+				Reason:  cosconditions.ConditionReasonStopping,
+				Message: cosconditions.ConditionReasonStopping,
+			},
+			ResourceRevision: gen,
+		})
+
+		return nil
 	}
 
 	for i := range binding.Status.Conditions {

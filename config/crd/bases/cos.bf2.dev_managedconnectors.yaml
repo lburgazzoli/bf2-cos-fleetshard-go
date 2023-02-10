@@ -188,6 +188,9 @@ spec:
                   - type
                   type: object
                 type: array
+              observedDeploymentResourceVersion:
+                format: int64
+                type: integer
               observedGeneration:
                 format: int64
                 type: integer
@@ -196,6 +199,7 @@ spec:
               phase:
                 type: string
             required:
+            - observedDeploymentResourceVersion
             - operatorId
             - phase
             type: object
