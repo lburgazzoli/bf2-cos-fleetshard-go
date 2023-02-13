@@ -10,14 +10,12 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 type ReconciliationContext struct {
 	client.Client
 	types.NamespacedName
 
-	M manager.Manager
 	C context.Context
 
 	Connector *cos.ManagedConnector

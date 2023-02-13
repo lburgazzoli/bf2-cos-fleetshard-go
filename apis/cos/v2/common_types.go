@@ -1,7 +1,9 @@
 package v2
 
 import (
-	"errors"
+	"encoding/json"
+	"github.com/pkg/errors"
+	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -43,5 +45,41 @@ func (m *RawMessage) UnmarshalJSON(data []byte) error {
 		return errors.New("json.RawMessage: UnmarshalJSON on nil pointer")
 	}
 	*m = append((*m)[0:0], data...)
+	return nil
+}
+
+// MarshalYAML ---
+func (m RawMessage) MarshalYAML() (interface{}, error) {
+	node := yaml.Node{}
+	err := node.Encode(m)
+	if err != nil {
+		return nil, err
+	}
+
+	return node, nil
+}
+
+// UnmarshalYAML ---
+func (m *RawMessage) UnmarshalYAML(value *yaml.Node) error {
+	if m == nil {
+		return errors.New("json.RawMessage: UnmarshalYAML on nil pointer")
+	}
+	*m = append((*m)[0:0], []byte(value.Value)...)
+	return nil
+}
+
+// Set ---
+func (m *RawMessage) Set(value any) error {
+	if m == nil {
+		return errors.New("json.RawMessage: Set on nil pointer")
+	}
+
+	data, err := json.Marshal(value)
+	if err != nil {
+		return errors.Wrap(err, "unable to marshal value")
+	}
+
+	*m = append((*m)[0:0], data...)
+
 	return nil
 }

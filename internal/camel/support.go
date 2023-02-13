@@ -251,7 +251,7 @@ func extractDependantConditions(conditions *[]cosv2.Condition, binding kamelv1la
 
 func patchDependant(rc controller.ReconciliationContext, source client.Object, target client.Object) error {
 
-	if err := controllerutil.SetControllerReference(rc.Connector, target, rc.M.GetScheme()); err != nil {
+	if err := controllerutil.SetControllerReference(rc.Connector, target, rc.Scheme()); err != nil {
 		return errors.Wrapf(err, "unable to set controller reference to: %s", target.GetObjectKind().GroupVersionKind().String())
 	}
 

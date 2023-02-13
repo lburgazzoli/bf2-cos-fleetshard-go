@@ -2,9 +2,9 @@ package resources
 
 import (
 	"context"
-	errors2 "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/patch"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,8 +31,8 @@ func Apply(
 		if err == nil {
 			return false, nil
 		}
-		if !errors.IsAlreadyExists(err) {
-			return false, errors2.Wrapf(err, "error during create resource: %s/%s", target.GetNamespace(), target.GetName())
+		if !k8serrors.IsAlreadyExists(err) {
+			return false, errors.Wrapf(err, "error during create resource: %s/%s", target.GetNamespace(), target.GetName())
 		}
 	}
 

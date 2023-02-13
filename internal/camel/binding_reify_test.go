@@ -6,14 +6,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	cosv2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
-	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources/secrets"
+	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 )
 
-func TestReify(t *testing.T) {
-	t.Skip("skipping testing")
+func TestReifySimple(t *testing.T) {
 
 	var err error
 
@@ -21,6 +20,10 @@ func TestReify(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "mctr-foo-secret",
 			Namespace: "mctr-baz",
+		},
+		Data: map[string][]byte{
+			cosmeta.ServiceAccountClientID:     []byte("AD828C28-34F9-4DCA-97FF-C6AD60E78CD9"),
+			cosmeta.ServiceAccountClientSecret: []byte("AD828C28-34F9-4DCA-97FF-C6AD60E78CD9"),
 		},
 	}
 	configmap := corev1.ConfigMap{
@@ -30,14 +33,18 @@ func TestReify(t *testing.T) {
 		},
 	}
 
-	err = secrets.SetStructuredData(&secret, "serviceAccount", ServiceAccount{
-		ClientID:     "225143db-c506-4f3c-9925-0772a2d825cb",
-		ClientSecret: "YWFr",
-	})
+	connector := cosv2.ManagedConnector{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mctr-foo",
+			Namespace: "mctr-baz",
+		},
+		Spec: cosv2.ManagedConnectorSpec{
+			ConnectorID:  "cid",
+			DeploymentID: "did",
+		},
+	}
 
-	assert.Nil(t, err)
-
-	err = secrets.SetStructuredData(&secret, "meta", ShardMetadata{
+	err = connector.Spec.DeploymentMeta.Set(ShardMetadata{
 		Annotations: map[string]string{
 			"trait.camel.apache.org/container.request-cpu":                "0.20",
 			"trait.camel.apache.org/container.request-memory":             "128M",
@@ -69,11 +76,8 @@ func TestReify(t *testing.T) {
 
 	assert.Nil(t, err)
 
-	err = secrets.SetStructuredData(&secret, "connector", map[string]interface{}{
-		"azure_access_key": map[string]interface{}{
-			"kind":  "base64",
-			"value": "YWFr",
-		},
+	err = connector.Spec.DeploymentConfig.Set(map[string]interface{}{
+		"azure_access_key":     "{{azure_access_key}}",
 		"azure_account_name":   "foo",
 		"azure_container_name": "foo/csv/1",
 		"data_shape": map[string]interface{}{
@@ -91,16 +95,7 @@ func TestReify(t *testing.T) {
 
 	b, bs, bc, err := reify(
 		&controller.ReconciliationContext{
-			Connector: &cosv2.ManagedConnector{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "mctr-foo",
-					Namespace: "mctr-baz",
-				},
-				Spec: cosv2.ManagedConnectorSpec{
-					ConnectorID:  "cid",
-					DeploymentID: "did",
-				},
-			},
+			Connector: &connector,
 			Secret:    &secret,
 			ConfigMap: &configmap,
 		},

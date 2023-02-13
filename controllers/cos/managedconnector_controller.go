@@ -49,7 +49,6 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	rc := controller.ReconciliationContext{
 		C:      ctx,
-		M:      r.mgr,
 		Client: r.Client,
 		NamespacedName: types.NamespacedName{
 			Name:      req.Name,
