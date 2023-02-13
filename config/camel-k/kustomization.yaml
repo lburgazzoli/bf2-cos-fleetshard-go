@@ -6,7 +6,6 @@ commonLabels:
   app: camel-k
 
 resources:
-  - https://github.com/apache/camel-k//config/manager/?ref=release-1.11.x
   - https://github.com/apache/camel-k//config/crd/?ref=release-1.11.x
   - https://github.com/apache/camel-k//config/rbac/?ref=release-1.11.x
   - https://github.com/apache/camel-k//config/rbac/openshift/?ref=release-1.11.x
@@ -21,7 +20,6 @@ patchesStrategicMerge:
 - patches/delete-camel-k-rolebinding-knative.yaml
 - patches/delete-camel-k-rolebinding-keda.yaml
 - patches/delete-camel-k-rolebinding-strimzi.yaml
-- patches/patch-camel-k-deployment.yaml
 
 patches:
   - path: patches/patch-roles.yaml

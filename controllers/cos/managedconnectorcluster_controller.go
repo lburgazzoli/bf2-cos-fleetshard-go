@@ -116,6 +116,8 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 		return ctrl.Result{}, nil
 	}
 
+	mcc.Status.Phase = "Running"
+
 	c, err := r.cluster(ctx, mcc)
 	if err != nil {
 		meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
@@ -126,7 +128,6 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 		})
 	} else {
 		mcc.Status.ObservedGeneration = mcc.Generation
-		mcc.Status.Phase = "Running"
 		mcc.Status.ClusterID = c.Parameters.ClusterID
 
 		if c.Parameters.BaseURL != nil {
@@ -134,25 +135,50 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 		}
 
 		if err := r.updateClusterStatus(ctx, mcc); err != nil {
-			return ctrl.Result{}, err
-		}
-		if err := r.updateConnectorsStatus(ctx, mcc); err != nil {
-			return ctrl.Result{}, err
-		}
-
-		if err := r.pollAndApply(ctx, c); err != nil {
 			meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
-				Type:    "Triggered",
+				Type:    "SyncClusterStatus",
 				Status:  metav1.ConditionFalse,
 				Reason:  "Error",
 				Message: err.Error(),
 			})
 		} else {
 			meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
-				Type:    "Triggered",
+				Type:    "SyncClusterStatus",
 				Status:  metav1.ConditionTrue,
-				Reason:  "Scheduled",
-				Message: "Scheduled",
+				Reason:  "Synced",
+				Message: "Synced",
+			})
+		}
+
+		if err := r.updateConnectorsStatus(ctx, mcc); err != nil {
+			meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
+				Type:    "SyncConnectorsStatus",
+				Status:  metav1.ConditionFalse,
+				Reason:  "Error",
+				Message: err.Error(),
+			})
+		} else {
+			meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
+				Type:    "SyncConnectorsStatus",
+				Status:  metav1.ConditionTrue,
+				Reason:  "Synced",
+				Message: "Synced",
+			})
+		}
+
+		if err := r.pollAndApply(ctx, c); err != nil {
+			meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
+				Type:    "Poll",
+				Status:  metav1.ConditionFalse,
+				Reason:  "Error",
+				Message: err.Error(),
+			})
+		} else {
+			meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
+				Type:    "Poll",
+				Status:  metav1.ConditionTrue,
+				Reason:  "Executed",
+				Message: "Executed",
 			})
 		}
 	}
@@ -274,6 +300,7 @@ func (r *ManagedConnectorClusterReconciler) cluster(ctx context.Context, mcc *co
 		ClientID:     params.ClientID,
 		ClientSecret: params.ClientSecret,
 		ClusterID:    params.ClusterID,
+		Debug:        false,
 	})
 
 	if err != nil {

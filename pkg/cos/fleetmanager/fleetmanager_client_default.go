@@ -2,6 +2,8 @@ package fleetmanager
 
 import (
 	"context"
+	"encoding/json"
+	"github.com/pkg/errors"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/internal/api/controlplane"
 	"net/http"
 	"strconv"
@@ -27,7 +29,7 @@ func (c *defaultClient) GetNamespaces(ctx context.Context, revision int64) ([]co
 		}
 
 		if err != nil {
-			return []controlplane.ConnectorNamespaceDeployment{}, err
+			return nil, unwrapOpenAPIError(err)
 		}
 		if len(result.Items) == 0 {
 			break
@@ -54,7 +56,7 @@ func (c *defaultClient) GetConnectors(ctx context.Context, revision int64) ([]co
 		}
 
 		if err != nil {
-			return []controlplane.ConnectorDeployment{}, err
+			return nil, unwrapOpenAPIError(err)
 		}
 		if len(result.Items) == 0 {
 			break
@@ -82,7 +84,7 @@ func (c *defaultClient) UpdateClusterStatus(ctx context.Context, status controlp
 		}
 	}
 
-	return err
+	return unwrapOpenAPIError(err)
 }
 
 func (c *defaultClient) UpdateConnectorDeploymentStatus(ctx context.Context, id string, status controlplane.ConnectorDeploymentStatus) error {
@@ -98,6 +100,24 @@ func (c *defaultClient) UpdateConnectorDeploymentStatus(ctx context.Context, id 
 				error: "",
 				code:  httpRes.StatusCode,
 			}
+		}
+	}
+
+	return unwrapOpenAPIError(err)
+}
+
+func unwrapOpenAPIError(err error) error {
+
+	if err != nil {
+		oapiError, ok := err.(*controlplane.GenericOpenAPIError)
+		if ok && oapiError.Body() != nil {
+			ge := GenericError{}
+
+			if err := json.Unmarshal(oapiError.Body(), &ge); err != nil {
+				return errors.Wrapf(err, "unable to unmarshal error")
+			}
+
+			return ge
 		}
 	}
 

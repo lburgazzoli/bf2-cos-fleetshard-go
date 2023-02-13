@@ -19,6 +19,7 @@ type Config struct {
 	ClientID     string
 	ClientSecret string
 	ClusterID    string
+	Debug        bool
 }
 
 func NewClient(ctx context.Context, config Config) (Client, error) {
@@ -46,7 +47,7 @@ func NewClient(ctx context.Context, config Config) (Client, error) {
 	apiConfig.Scheme = config.ApiURL.Scheme
 	apiConfig.Host = config.ApiURL.Host
 	apiConfig.UserAgent = config.UserAgent
-	apiConfig.Debug = false
+	apiConfig.Debug = config.Debug
 	apiConfig.HTTPClient = oauthConfig.Client(ct)
 
 	client := defaultClient{

@@ -234,7 +234,7 @@ func (r *ManagedConnectorClusterReconciler) deployConnectors(
 		if err != nil {
 			return err
 		}
-		if err := controllerutil.SetOwnerReference(newC, newS, r.Scheme); err != nil {
+		if err := controllerutil.SetOwnerReference(newC, newS, r.Scheme()); err != nil {
 			return err
 		}
 

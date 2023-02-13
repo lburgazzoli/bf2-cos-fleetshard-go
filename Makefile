@@ -80,7 +80,8 @@ build: manifests generate fmt vet
 
 .PHONY: run
 run: manifests generate fmt vet
-	CGO_ENABLED=0 go run cmd/fleetshard/main.go camel run \
+	CGO_ENABLED=0 go run cmd/fleetshard/main.go run \
+		--leader-election=false \
 		--operator-id foo \
 		--operator-group cos.bf2.dev \
 		--operator-type camel \

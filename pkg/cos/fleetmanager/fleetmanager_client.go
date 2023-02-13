@@ -24,3 +24,16 @@ func (e ResourceGone) Error() string {
 func (e ResourceGone) Code() int {
 	return e.code
 }
+
+type GenericError struct {
+	Reason      string `json:"reason"`
+	OperationID string `json:"operation_id"`
+	ID          string `json:"id"`
+	Kind        string `json:"kind"`
+	Href        string `json:"href"`
+	Code        string `json:"code"`
+}
+
+func (e GenericError) Error() string {
+	return e.Reason
+}

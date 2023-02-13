@@ -10,7 +10,7 @@ func PresentConnectorNamespaceDeploymentStatus(ns corev1.Namespace) controlplane
 	answer := controlplane.ConnectorNamespaceDeploymentStatus{
 		Id:      ns.Labels[cosmeta.MetaNamespaceID],
 		Phase:   controlplane.CONNECTORNAMESPACESTATE_READY,
-		Version: ns.Labels[cosmeta.MetaNamespaceRevision],
+		Version: ns.Annotations[cosmeta.MetaNamespaceRevision],
 	}
 
 	switch ns.Status.Phase {
