@@ -12,7 +12,6 @@ import (
 	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,22 +24,20 @@ import (
 // ManagedConnectorReconciler reconciles a ManagedConnector object
 type ManagedConnectorReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
 	mgr     manager.Manager
 	options controller.Options
 	l       logr.Logger
 }
 
-func NewManagedConnectorReconciler(mgr manager.Manager, options controller.Options) (*ManagedConnectorReconciler, error) {
+func SetupManagedConnectorReconciler(mgr manager.Manager, options controller.Options) error {
 	r := &ManagedConnectorReconciler{
 		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
 		mgr:     mgr,
 		options: options,
 		l:       log.Log.WithName("connector-reconciler"),
 	}
 
-	return r, r.initialize(mgr)
+	return r.initialize(mgr)
 }
 
 func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

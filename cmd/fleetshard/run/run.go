@@ -29,7 +29,6 @@ func NewRunCmd() *cobra.Command {
 		ReleaseLeaderElectionOnCancel: true,
 		Group:                         "cos.bf2.dev",
 		ID:                            "",
-		Version:                       "",
 		Type:                          "",
 	}
 
@@ -38,11 +37,29 @@ func NewRunCmd() *cobra.Command {
 		Short: "run",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return controller.Start(options, func(manager manager.Manager, opts controller.Options) error {
-				if _, err := cos.NewManagedConnectorReconciler(manager, opts); err != nil {
-					ctrl.Log.WithName("controller-camel").Error(
+				// camel-k
+				if err := cos.SetupCamelControllers(manager, options); err != nil {
+					ctrl.Log.WithName("camel-k").Error(
+						err,
+						"unable to set-up camel-k controllers")
+
+					return err
+				}
+
+				// cos
+				if err := cos.SetupManagedConnectorClusterReconciler(manager, opts); err != nil {
+					ctrl.Log.WithName("managed-connector-cluster").Error(
 						err,
 						"unable to create controller",
-						"controller", cosv2.GroupVersion.String()+":ManagedConnector")
+						"gvk", cosv2.GroupVersion.String()+":ManagedConnectorCluster")
+
+					return err
+				}
+				if err := cos.SetupManagedConnectorReconciler(manager, opts); err != nil {
+					ctrl.Log.WithName("managed-connector").Error(
+						err,
+						"unable to create controller",
+						"gvk", cosv2.GroupVersion.String()+":ManagedConnector")
 
 					return err
 				}
@@ -55,7 +72,6 @@ func NewRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&options.ID, "operator-id", options.ID, "The ID of the operator.")
 	cmd.Flags().StringVar(&options.Group, "operator-group", options.Group, "The group of the operator.")
 	cmd.Flags().StringVar(&options.Type, "operator-type", options.Type, "The type of the operator.")
-	cmd.Flags().StringVar(&options.Version, "operator-version", options.Version, "The version of the operator.")
 	cmd.Flags().StringVar(&options.MetricsAddr, "metrics-bind-address", options.MetricsAddr, "The address the metric endpoint binds to.")
 	cmd.Flags().StringVar(&options.ProbeAddr, "health-probe-bind-address", options.ProbeAddr, "The address the probe endpoint binds to.")
 	cmd.Flags().StringVar(&options.ProofAddr, "pprof-bind-address", options.ProofAddr, "The address the pprof endpoint binds to.")

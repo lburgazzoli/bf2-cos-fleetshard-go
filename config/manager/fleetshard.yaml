@@ -23,17 +23,29 @@ spec:
         runAsNonRoot: true
       containers:
         - args:
-            - 'camel'
             - 'run'
             - '--operator-id'
-            - 'fleetshard-operator-camel'
+            - 'cos-fleetshard'
             - '--operator-group'
             - 'cos.bf2.dev'
             - '--operator-type'
             - 'camel'
-            - '--operator-version'
-            - '2'
           image: 'quay.io/lburgazzoli/cos-fleetshard:latest'
+          env:
+            - name: WATCH_NAMESPACE
+              value: ""
+            - name: OPERATOR_NAME
+              value: "camel-k"
+            - name: OPERATOR_ID
+              value: "camel-k"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
           name: manager
           securityContext:
             allowPrivilegeEscalation: false

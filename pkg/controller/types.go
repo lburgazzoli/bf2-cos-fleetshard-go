@@ -68,5 +68,4 @@ type Options struct {
 	ID                            string
 	Group                         string
 	Type                          string
-	Version                       string
 }

@@ -1,3 +1,4 @@
 resources:
-- operator-camel.yaml
-- operator-agent.yaml
+- fleetshard.yaml
+
+

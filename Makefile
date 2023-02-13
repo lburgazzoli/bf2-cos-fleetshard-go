@@ -78,25 +78,15 @@ test/integration:
 build: manifests generate fmt vet
 	CGO_ENABLED=0 go build -o bin/fleetshard cmd/fleetshard/main.go
 
-.PHONY: run/camel
-run/camel: manifests generate fmt vet
+.PHONY: run
+run: manifests generate fmt vet
 	CGO_ENABLED=0 go run cmd/fleetshard/main.go camel run \
 		--operator-id foo \
 		--operator-group cos.bf2.dev \
 		--operator-type camel \
-		--operator-version 2 \
 		--pprof-bind-address localhost:6060 \
 		--metrics-bind-address localhost:8080 \
 		--health-probe-bind-address localhost:8081
-
-.PHONY: run/agent
-run/agent: manifests generate fmt vet
-	CGO_ENABLED=0 go run cmd/fleetshard/main.go agent run \
-		--operator-id bar \
-		--operator-group cos.bf2.dev \
-		--pprof-bind-address localhost:6061 \
-		--metrics-bind-address localhost:8090 \
-		--health-probe-bind-address localhost:8091
 
 
 .PHONY: openapi/generate

@@ -30,9 +30,9 @@ patches:
   - target:
       group: rbac.authorization.k8s.io
       version: v1
-      kind: RoleBinding
-      name: "strimzi.*"
+      kind: ClusterRoleBinding
+      name: "camel-k-operator.*"
     patch: |-
       - op: replace
-        path: /subjects/0/namespace
-        value: "cos-fleetshard-system"
+        path: /subjects/0/name
+        value: "cos-fleetshard"

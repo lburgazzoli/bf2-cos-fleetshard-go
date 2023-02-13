@@ -15,7 +15,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -30,24 +29,22 @@ import (
 // ManagedConnectorClusterReconciler reconciles a ManagedConnector object
 type ManagedConnectorClusterReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
 	mgr     manager.Manager
 	options controller.Options
 	clients map[types.NamespacedName]*Cluster
 	l       logr.Logger
 }
 
-func NewManagedConnectorClusterReconciler(mgr manager.Manager, options controller.Options) (*ManagedConnectorClusterReconciler, error) {
+func SetupManagedConnectorClusterReconciler(mgr manager.Manager, options controller.Options) error {
 	r := &ManagedConnectorClusterReconciler{
 		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
 		mgr:     mgr,
 		options: options,
 		clients: make(map[types.NamespacedName]*Cluster),
 		l:       log.Log.WithName("cluster-reconciler"),
 	}
 
-	return r, r.initialize(mgr)
+	return r.initialize(mgr)
 }
 
 func (r *ManagedConnectorClusterReconciler) initialize(mgr ctrl.Manager) error {
