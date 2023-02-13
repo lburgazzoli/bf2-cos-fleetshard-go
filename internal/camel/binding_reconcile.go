@@ -172,6 +172,13 @@ func handleStop(
 		c.ObservedGeneration = rc.Connector.Status.ObservedGeneration
 		c.ResourceRevision = rc.Connector.Status.ObservedDeploymentResourceVersion
 	})
+	conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeReady, func(c *cos.Condition) {
+		c.Status = metav1.ConditionFalse
+		c.Reason = conditions.ConditionReasonStopping
+		c.Message = conditions.ConditionReasonStopping
+		c.ObservedGeneration = rc.Connector.Status.ObservedGeneration
+		c.ResourceRevision = rc.Connector.Status.ObservedDeploymentResourceVersion
+	})
 
 	b := binding.DeepCopy()
 	b.Spec.Replicas = pointer.Of(int32(0))
@@ -184,6 +191,17 @@ func handleStop(
 		})
 
 		return errors.Wrap(err, "unable to scale binding")
+	}
+
+	if b.Status.Replicas != nil && *b.Status.Replicas == 0 {
+
+		conditions.Update(&rc.Connector.Status.Conditions, conditions.ConditionTypeReady, func(c *cos.Condition) {
+			c.Status = metav1.ConditionFalse
+			c.Reason = conditions.ConditionReasonStopped
+			c.Message = conditions.ConditionReasonStopped
+			c.ObservedGeneration = rc.Connector.Status.ObservedGeneration
+			c.ResourceRevision = rc.Connector.Status.ObservedDeploymentResourceVersion
+		})
 	}
 
 	return nil

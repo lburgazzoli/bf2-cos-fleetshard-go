@@ -24,19 +24,6 @@ func PresentConnectorDeploymentStatus(res cosv2.ManagedConnector) controlplane.C
 			answer.Phase = pointer.Of(controlplane.CONNECTORSTATE_DEPROVISIONING)
 		case p.ResourceRevision != res.Spec.DeploymentResourceVersion && res.Spec.DesiredState == cosv2.DesiredStateDeleted:
 			answer.Phase = pointer.Of(controlplane.CONNECTORSTATE_DEPROVISIONING)
-
-		// operator has provisioned the operand resources
-		case p.Reason == conditions.ConditionReasonStopping:
-			answer.Phase = pointer.Of(controlplane.CONNECTORSTATE_DEPROVISIONING)
-		case p.Reason == conditions.ConditionReasonStopped:
-			answer.Phase = pointer.Of(controlplane.CONNECTORSTATE_STOPPED)
-		case p.Reason == conditions.ConditionReasonDeleting:
-			answer.Phase = pointer.Of(controlplane.CONNECTORSTATE_DELETING)
-		case p.Reason == conditions.ConditionReasonDeleted:
-			answer.Phase = pointer.Of(controlplane.CONNECTORSTATE_DELETED)
-		case p.Status == metav1.ConditionFalse:
-			answer.Phase = pointer.Of(controlplane.CONNECTORSTATE_PROVISIONING)
-
 		}
 	}
 
@@ -56,6 +43,14 @@ func PresentConnectorDeploymentStatus(res cosv2.ManagedConnector) controlplane.C
 			answer.Phase = pointer.Of(controlplane.CONNECTORSTATE_READY)
 		case r.Status == metav1.ConditionFalse && r.Reason == conditions.ConditionReasonError:
 			answer.Phase = pointer.Of(controlplane.CONNECTORSTATE_FAILED)
+		case r.Reason == conditions.ConditionReasonStopping:
+			answer.Phase = pointer.Of(controlplane.CONNECTORSTATE_DEPROVISIONING)
+		case r.Reason == conditions.ConditionReasonStopped:
+			answer.Phase = pointer.Of(controlplane.CONNECTORSTATE_STOPPED)
+		case r.Reason == conditions.ConditionReasonDeleting:
+			answer.Phase = pointer.Of(controlplane.CONNECTORSTATE_DEPROVISIONING)
+		case r.Reason == conditions.ConditionReasonDeleted:
+			answer.Phase = pointer.Of(controlplane.CONNECTORSTATE_DELETED)
 
 		}
 	}

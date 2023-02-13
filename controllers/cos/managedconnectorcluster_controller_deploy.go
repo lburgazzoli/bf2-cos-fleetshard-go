@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	camelv1 "github.com/apache/camel-k/pkg/apis/camel/v1"
 	"github.com/pkg/errors"
 	"github.com/rs/xid"
 	cosv2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
@@ -33,6 +34,13 @@ func (r *ManagedConnectorClusterReconciler) deployNamespaces(
 	for i := range namespaces {
 		r.l.Info("namespace", "id", namespaces[i].Id, "revision", namespaces[i].ResourceVersion)
 
+		var patched bool
+		var err error
+
+		//
+		// NS
+		//
+
 		ns := corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "mctr-" + namespaces[i].Id,
@@ -52,7 +60,7 @@ func (r *ManagedConnectorClusterReconciler) deployNamespaces(
 			cosmeta.MetaNamespaceRevision: fmt.Sprintf("%d", namespaces[i].ResourceVersion),
 		}
 
-		patched, err := resources.Apply(ctx, r.Client, &ns, newNs)
+		patched, err = resources.Apply(ctx, r.Client, &ns, newNs)
 		if err != nil {
 			return err
 		}
@@ -60,6 +68,34 @@ func (r *ManagedConnectorClusterReconciler) deployNamespaces(
 		r.l.Info(
 			"namespace",
 			"id", namespaces[i].Id,
+			"revision", namespaces[i].ResourceVersion,
+			"patched", patched)
+
+		//
+		// IP
+		//
+
+		ip := camelv1.IntegrationPlatform{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "camel-k",
+				Namespace: ns.Name,
+			},
+		}
+
+		if err := resources.Get(ctx, r, &ip); err != nil && !k8serrors.IsNotFound(err) {
+			return err
+		}
+
+		newIp := ip.DeepCopy()
+
+		patched, err = resources.Apply(ctx, r.Client, &ip, newIp)
+		if err != nil {
+			return err
+		}
+
+		r.l.Info(
+			"integration-platform",
+			"namespace", namespaces[i].Id,
 			"revision", namespaces[i].ResourceVersion,
 			"patched", patched)
 	}
