@@ -308,6 +308,7 @@ func (r *ManagedConnectorClusterReconciler) cluster(ctx context.Context, mcc *co
 	}
 
 	answer := &Cluster{
+		MCC:         *mcc,
 		Client:      c,
 		Parameters:  params,
 		ResyncDelay: mcc.Spec.ResyncDelay.Duration,

@@ -5,6 +5,7 @@ import (
 	camelv1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
 	"github.com/spf13/cobra"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/controllers/cos"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -15,6 +16,11 @@ import (
 )
 
 func init() {
+	// change the scheme defined for camel from camel.apache.org to cos.bf2.dev
+	camelv1alpha1.SchemeGroupVersion = schema.GroupVersion{Group: "cos.bf2.dev", Version: "v2"}
+	camelv1.SchemeGroupVersion = schema.GroupVersion{Group: "cos.bf2.dev", Version: "v2"}
+
+	// register the schemes
 	utilruntime.Must(cosv2.AddToScheme(controller.Scheme))
 	utilruntime.Must(camelv1alpha1.AddToScheme(controller.Scheme))
 	utilruntime.Must(camelv1.AddToScheme(controller.Scheme))

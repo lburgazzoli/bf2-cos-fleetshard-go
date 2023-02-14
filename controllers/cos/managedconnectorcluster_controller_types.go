@@ -1,6 +1,7 @@
 package cos
 
 import (
+	v2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetmanager"
 	"net/url"
 	"time"
@@ -18,6 +19,7 @@ type AddonParameters struct {
 type Cluster struct {
 	fleetmanager.Client
 
+	MCC        v2.ManagedConnectorCluster
 	Parameters AddonParameters
 
 	ResyncDelay time.Duration

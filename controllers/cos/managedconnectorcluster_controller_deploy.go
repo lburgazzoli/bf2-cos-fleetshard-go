@@ -75,20 +75,30 @@ func (r *ManagedConnectorClusterReconciler) deployNamespaces(
 		// IP
 		//
 
-		ip := camelv1.IntegrationPlatform{
+		ipSource := camelv1.IntegrationPlatform{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "camel-k",
+				Namespace: cluster.MCC.Namespace,
+			},
+		}
+		ipTarget := camelv1.IntegrationPlatform{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "camel-k",
 				Namespace: ns.Name,
 			},
 		}
 
-		if err := resources.Get(ctx, r, &ip); err != nil && !k8serrors.IsNotFound(err) {
+		if err := resources.Get(ctx, r, &ipSource); err != nil && !k8serrors.IsNotFound(err) {
+			return err
+		}
+		if err := resources.Get(ctx, r, &ipTarget); err != nil && !k8serrors.IsNotFound(err) {
 			return err
 		}
 
-		newIp := ip.DeepCopy()
+		newIP := ipTarget.DeepCopy()
+		newIP.Spec = ipSource.Spec
 
-		patched, err = resources.Apply(ctx, r.Client, &ip, newIp)
+		patched, err = resources.Apply(ctx, r.Client, &ipTarget, newIP)
 		if err != nil {
 			return err
 		}

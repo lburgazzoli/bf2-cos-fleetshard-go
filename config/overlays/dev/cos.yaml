@@ -1,13 +1,18 @@
 ---
-apiVersion: camel.apache.org/v1
+apiVersion: cos.bf2.dev/v2
 kind: IntegrationPlatform
 metadata:
   name: camel-k
+  namespace: cos-fleetshard-system
+spec:
+  build:
+    runtimeVersion: 1.16.0
 ---
 apiVersion: cos.bf2.dev/v2
 kind:  ManagedConnectorCluster
 metadata:
   name: 'lb-dev'
+  namespace: cos-fleetshard-system
 spec:
   secret: 'addon-connectors-operator-parameters'
   pollDelay: '10s'
