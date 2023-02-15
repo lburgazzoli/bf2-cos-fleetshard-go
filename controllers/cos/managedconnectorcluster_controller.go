@@ -89,6 +89,9 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 				if k8serrors.IsConflict(err) {
 					return ctrl.Result{}, err
 				}
+				if k8serrors.IsNotFound(err) {
+					return ctrl.Result{}, nil
+				}
 
 				return ctrl.Result{}, errors.Wrapf(err, "failure adding finalizer to connector cluster %s", req.NamespacedName)
 			}
@@ -103,6 +106,9 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 			if err := r.Update(ctx, mcc); err != nil {
 				if k8serrors.IsConflict(err) {
 					return ctrl.Result{}, err
+				}
+				if k8serrors.IsNotFound(err) {
+					return ctrl.Result{}, nil
 				}
 
 				return ctrl.Result{}, errors.Wrapf(err, "failure removing finalizer from connector cluster %s", req.NamespacedName)
