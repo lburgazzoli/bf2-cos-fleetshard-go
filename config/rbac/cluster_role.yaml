@@ -47,7 +47,7 @@ rules:
 # camel-k
 #
 - apiGroups:
-  - camel.apache.org
+  - cos.bf2.dev
   resources:
   - kameletbindings
   verbs:

@@ -14,6 +14,8 @@ patchesStrategicMerge:
 - patches/delete-camel-k-edit.yaml
 - patches/delete-camel-k-clusterrole-console.yaml
 - patches/delete-camel-k-clusterrole-console-binding.yaml
+- patches/delete-camel-k-role-operator.yaml
+- patches/delete-camel-k-role-operator-openshift.yaml
 - patches/delete-camel-k-role-knative.yaml
 - patches/delete-camel-k-role-keda.yaml
 - patches/delete-camel-k-role-strimzi.yaml
@@ -34,3 +36,108 @@ patches:
       kind: RoleBinding
       name: camel-k-operator.*
       version: v1
+  - target:
+      group: apiextensions.k8s.io
+      version: v1
+      kind: CustomResourceDefinition
+      name: builds.camel.apache.org
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: "builds.cos.bf2.dev"
+      - op: replace
+        path: /spec/group
+        value: "cos.bf2.dev"
+      - op: replace
+        path: /spec/versions/0/name
+        value: "v2"
+  - target:
+      group: apiextensions.k8s.io
+      version: v1
+      kind: CustomResourceDefinition
+      name: camelcatalogs.camel.apache.org
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: "camelcatalogs.cos.bf2.dev"
+      - op: replace
+        path: /spec/group
+        value: "cos.bf2.dev"
+      - op: replace
+        path: /spec/versions/0/name
+        value: "v2"
+  - target:
+      group: apiextensions.k8s.io
+      version: v1
+      kind: CustomResourceDefinition
+      name: integrationkits.camel.apache.org
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: "integrationkits.cos.bf2.dev"
+      - op: replace
+        path: /spec/group
+        value: "cos.bf2.dev"
+      - op: replace
+        path: /spec/versions/0/name
+        value: "v2"
+  - target:
+      group: apiextensions.k8s.io
+      version: v1
+      kind: CustomResourceDefinition
+      name: integrationplatforms.camel.apache.org
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: "integrationplatforms.cos.bf2.dev"
+      - op: replace
+        path: /spec/group
+        value: "cos.bf2.dev"
+      - op: replace
+        path: /spec/versions/0/name
+        value: "v2"
+  - target:
+      group: apiextensions.k8s.io
+      version: v1
+      kind: CustomResourceDefinition
+      name: integrations.camel.apache.org
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: "integrations.cos.bf2.dev"
+      - op: replace
+        path: /spec/group
+        value: "cos.bf2.dev"
+      - op: replace
+        path: /spec/versions/0/name
+        value: "v2"
+  - target:
+      group: apiextensions.k8s.io
+      version: v1
+      kind: CustomResourceDefinition
+      name: kameletbindings.camel.apache.org
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: "kameletbindings.cos.bf2.dev"
+      - op: replace
+        path: /spec/group
+        value: "cos.bf2.dev"
+      - op: replace
+        path: /spec/versions/0/name
+        value: "v2"
+  - target:
+      group: apiextensions.k8s.io
+      version: v1
+      kind: CustomResourceDefinition
+      name: kamelets.camel.apache.org
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: "kamelets.cos.bf2.dev"
+      - op: replace
+        path: /spec/group
+        value: "cos.bf2.dev"
+      - op: replace
+        path: /spec/versions/0/name
+        value: "v2"
