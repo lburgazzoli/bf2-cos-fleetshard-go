@@ -3,13 +3,13 @@ module gitub.com/lburgazzoli/bf2-cos-fleetshard-go
 go 1.19
 
 require (
-	github.com/apache/camel-k v1.11.1
+	github.com/apache/camel-k v0.0.0-00010101000000-000000000000
 	github.com/apache/camel-k/pkg/apis/camel v1.11.1
 	github.com/cucumber/godog v0.12.6
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/go-logr/logr v1.2.3
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/onsi/ginkgo/v2 v2.8.0
+	github.com/onsi/ginkgo/v2 v2.8.1
 	github.com/onsi/gomega v1.26.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.14.0
