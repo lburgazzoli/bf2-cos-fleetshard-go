@@ -127,7 +127,7 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 	c, err := r.cluster(ctx, mcc)
 	if err != nil {
 		meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
-			Type:    "Triggered",
+			Type:    "Poll",
 			Status:  metav1.ConditionFalse,
 			Reason:  "Error",
 			Message: err.Error(),

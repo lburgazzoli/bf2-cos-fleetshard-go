@@ -8,6 +8,7 @@ commonLabels:
 resources:
   - resources/cluster-role-camel-k-operator.yaml
   - resources/cluster-role-camel-k-operator-openshift.yaml
+  - resources/camel-catalog.yaml
   - https://github.com/apache/camel-k//config/crd/?ref=release-1.11.x
   - https://github.com/apache/camel-k//config/rbac/?ref=release-1.11.x
   - https://github.com/apache/camel-k//config/rbac/openshift/?ref=release-1.11.x

@@ -103,6 +103,38 @@ func (r *ManagedConnectorClusterReconciler) deployNamespaces(
 			return err
 		}
 
+		//
+		// Catalog
+		//
+
+		ccSource := camelv1.CamelCatalog{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "camel-catalog-1.16.0",
+				Namespace: cluster.MCC.Namespace,
+			},
+		}
+		ccTarget := camelv1.CamelCatalog{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "camel-catalog-1.16.0",
+				Namespace: ns.Name,
+			},
+		}
+
+		if err := resources.Get(ctx, r, &ccSource); err != nil && !k8serrors.IsNotFound(err) {
+			return err
+		}
+		if err := resources.Get(ctx, r, &ccTarget); err != nil && !k8serrors.IsNotFound(err) {
+			return err
+		}
+
+		newCC := ccTarget.DeepCopy()
+		newCC.Spec = ccSource.Spec
+
+		patched, err = resources.Apply(ctx, r.Client, &ccTarget, newCC)
+		if err != nil {
+			return err
+		}
+
 		r.l.Info(
 			"integration-platform",
 			"namespace", namespaces[i].Id,

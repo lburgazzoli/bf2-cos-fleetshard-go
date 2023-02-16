@@ -243,6 +243,10 @@ func extractDependantConditions(conditions *[]cosv2.Condition, binding kamelv1la
 			wc.Message = cosconditions.ConditionReasonUnknown
 		}
 
+		if binding.Status.Phase == kamelv1lapha1.KameletBindingPhaseError {
+			wc.Reason = cosconditions.ConditionReasonError
+		}
+
 		cosconditions.Set(conditions, wc)
 	}
 

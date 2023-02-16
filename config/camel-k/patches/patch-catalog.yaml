@@ -1,0 +1,3 @@
+- op: replace
+  path: /apiVersion
+  value: cos.bf2.dev/v2

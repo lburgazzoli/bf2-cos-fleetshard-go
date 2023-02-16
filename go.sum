@@ -658,10 +658,10 @@ github.com/kulti/thelper v0.4.0/go.mod h1:vMu2Cizjy/grP+jmsvOFDx1kYP6+PD1lqg4Yu5
 github.com/kunwardeep/paralleltest v1.0.3/go.mod h1:vLydzomDFpk7yu5UX02RmP0H8QfRPOV/oFhWN85Mjb4=
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
 github.com/kyoh86/exportloopref v0.1.8/go.mod h1:1tUcJeiioIs7VWe5gcOObrux3lb66+sBqGZrRkMwPgg=
-github.com/lburgazzoli/apache-camel-k v0.0.0-20230216082350-a5bd403b6b4e h1:hHBMCwD0h1H5MYoJ2PhSWQG4AuzitklC4EmV7xH6A90=
-github.com/lburgazzoli/apache-camel-k v0.0.0-20230216082350-a5bd403b6b4e/go.mod h1:XFqF0YI1dVBijhjd0bxUdLtg0Ga0jVLAlT+kjpOsrgw=
-github.com/lburgazzoli/apache-camel-k/pkg/apis/camel v0.0.0-20230216082350-a5bd403b6b4e h1:pRQ0Tbo7QEMPaoFKG6/LFhsvDyK0V9ZQIYHvhzeCdOs=
-github.com/lburgazzoli/apache-camel-k/pkg/apis/camel v0.0.0-20230216082350-a5bd403b6b4e/go.mod h1:1ZdC7OjJADCofumVHusL0bjxPzcGkZWmCLlODq30JHQ=
+github.com/lburgazzoli/apache-camel-k v0.0.0-20230216102102-1f20e021eb44 h1:wMPn00YcSn0Ame6Y7xhshIGC3KmQ9Y2JS3XWvPdWZMc=
+github.com/lburgazzoli/apache-camel-k v0.0.0-20230216102102-1f20e021eb44/go.mod h1:XFqF0YI1dVBijhjd0bxUdLtg0Ga0jVLAlT+kjpOsrgw=
+github.com/lburgazzoli/apache-camel-k/pkg/apis/camel v0.0.0-20230216102102-1f20e021eb44 h1:qJLvHnICKM+e8C9pmEgBEHm+L6mNb5EWA/nuXvLETEg=
+github.com/lburgazzoli/apache-camel-k/pkg/apis/camel v0.0.0-20230216102102-1f20e021eb44/go.mod h1:1ZdC7OjJADCofumVHusL0bjxPzcGkZWmCLlODq30JHQ=
 github.com/ldez/gomoddirectives v0.2.2/go.mod h1:cpgBogWITnCfRq2qGoDkKMEVSaarhdBr6g8G04uz6d0=
 github.com/ldez/tagliatelle v0.2.0/go.mod h1:8s6WJQwEYHbKZDsp/LjArytKOG8qaMrKQQ3mFukHs88=
 github.com/leodido/go-urn v1.2.0/go.mod h1:+8+nEpDfqqsY+g338gtMEUOtuK+4dEMhiQEgxpxOKII=
