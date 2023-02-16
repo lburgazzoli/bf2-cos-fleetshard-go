@@ -14,6 +14,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -75,71 +76,75 @@ func (r *ManagedConnectorClusterReconciler) deployNamespaces(
 		// IP
 		//
 
-		ipSource := camelv1.IntegrationPlatform{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "camel-k",
-				Namespace: cluster.MCC.Namespace,
-			},
-		}
-		ipTarget := camelv1.IntegrationPlatform{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "camel-k",
-				Namespace: ns.Name,
-			},
-		}
-
-		if err := resources.Get(ctx, r, &ipSource); err != nil && !k8serrors.IsNotFound(err) {
-			return err
-		}
-		if err := resources.Get(ctx, r, &ipTarget); err != nil && !k8serrors.IsNotFound(err) {
+		ipl := camelv1.IntegrationPlatformList{}
+		if err := r.List(ctx, &ipl, client.InNamespace(cluster.MCC.Namespace)); err != nil && !k8serrors.IsNotFound(err) {
 			return err
 		}
 
-		newIP := ipTarget.DeepCopy()
-		newIP.Spec = ipSource.Spec
+		for i := range ipl.Items {
+			target := camelv1.IntegrationPlatform{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      ipl.Items[i].Name,
+					Namespace: ns.Name,
+				},
+			}
 
-		patched, err = resources.Apply(ctx, r.Client, &ipTarget, newIP)
-		if err != nil {
-			return err
+			if err := resources.Get(ctx, r, &target); err != nil && !k8serrors.IsNotFound(err) {
+				return err
+			}
+
+			newRes := target.DeepCopy()
+			newRes.Spec = ipl.Items[i].Spec
+
+			patched, err = resources.Apply(ctx, r.Client, &target, newRes)
+			if err != nil {
+				return err
+			}
+
+			r.l.Info(
+				"integrationPlatform",
+				"namespace", target.Namespace,
+				"name", target.Name,
+				"revision", target.ResourceVersion,
+				"patched", patched)
 		}
 
 		//
 		// Catalog
 		//
 
-		ccSource := camelv1.CamelCatalog{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "camel-catalog-1.16.0",
-				Namespace: cluster.MCC.Namespace,
-			},
-		}
-		ccTarget := camelv1.CamelCatalog{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "camel-catalog-1.16.0",
-				Namespace: ns.Name,
-			},
-		}
-
-		if err := resources.Get(ctx, r, &ccSource); err != nil && !k8serrors.IsNotFound(err) {
-			return err
-		}
-		if err := resources.Get(ctx, r, &ccTarget); err != nil && !k8serrors.IsNotFound(err) {
+		ccl := camelv1.CamelCatalogList{}
+		if err := r.List(ctx, &ccl, client.InNamespace(cluster.MCC.Namespace)); err != nil && !k8serrors.IsNotFound(err) {
 			return err
 		}
 
-		newCC := ccTarget.DeepCopy()
-		newCC.Spec = ccSource.Spec
+		for i := range ccl.Items {
+			target := camelv1.CamelCatalog{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      ccl.Items[i].Name,
+					Namespace: ns.Name,
+				},
+			}
 
-		patched, err = resources.Apply(ctx, r.Client, &ccTarget, newCC)
-		if err != nil {
-			return err
+			if err := resources.Get(ctx, r, &target); err != nil && !k8serrors.IsNotFound(err) {
+				return err
+			}
+
+			newRes := target.DeepCopy()
+			newRes.Spec = ccl.Items[i].Spec
+
+			patched, err = resources.Apply(ctx, r.Client, &target, newRes)
+			if err != nil {
+				return err
+			}
+
+			r.l.Info(
+				"camel-catalog",
+				"namespace", target.Namespace,
+				"name", target.Name,
+				"revision", target.ResourceVersion,
+				"patched", target)
 		}
-
-		r.l.Info(
-			"integration-platform",
-			"namespace", namespaces[i].Id,
-			"revision", namespaces[i].ResourceVersion,
-			"patched", patched)
 	}
 
 	return nil
