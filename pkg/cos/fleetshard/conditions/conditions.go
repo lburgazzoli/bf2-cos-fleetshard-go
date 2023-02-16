@@ -2,7 +2,8 @@ package conditions
 
 import (
 	cosv2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 )
 
@@ -29,7 +30,7 @@ func Update(conditions *[]cosv2.Condition, conditionType string, consumer func(*
 	c := Find(*conditions, conditionType)
 	if c == nil {
 		c = &cosv2.Condition{
-			Condition: v1.Condition{
+			Condition: metav1.Condition{
 				Type: conditionType,
 			},
 		}
@@ -57,7 +58,7 @@ func Set(conditions *[]cosv2.Condition, newCondition cosv2.Condition) {
 		return
 	}
 
-	now := v1.NewTime(time.Now())
+	now := metav1.NewTime(time.Now())
 	existingCondition := Find(*conditions, newCondition.Type)
 
 	if existingCondition == nil {
@@ -81,4 +82,17 @@ func Set(conditions *[]cosv2.Condition, newCondition cosv2.Condition) {
 	existingCondition.Message = newCondition.Message
 	existingCondition.ObservedGeneration = newCondition.ObservedGeneration
 	existingCondition.ResourceRevision = newCondition.ResourceRevision
+}
+
+func SetError(conditions *[]metav1.Condition, conditionType string, err error) {
+	if err == nil {
+		return
+	}
+
+	meta.SetStatusCondition(conditions, metav1.Condition{
+		Type:    conditionType,
+		Status:  metav1.ConditionFalse,
+		Reason:  "Error",
+		Message: err.Error(),
+	})
 }

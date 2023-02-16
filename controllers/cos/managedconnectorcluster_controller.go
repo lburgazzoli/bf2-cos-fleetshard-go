@@ -7,6 +7,7 @@ import (
 	cosv2 "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/apis/cos/v2"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/controller"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetmanager"
+	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/conditions"
 	cosmeta "gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/cos/fleetshard/meta"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/defaults"
 	"gitub.com/lburgazzoli/bf2-cos-fleetshard-go/pkg/resources"
@@ -65,14 +66,15 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 	l.Info("Reconciling")
 
 	mccRef := &cosv2.ManagedConnectorCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      req.NamespacedName.Name,
-			Namespace: req.NamespacedName.Namespace,
-		},
+		ObjectMeta: resources.AsObjectMeta(req.NamespacedName),
 	}
 
 	if err := resources.Get(ctx, r, mccRef); err != nil && !k8serrors.IsNotFound(err) {
-		r.l.Error(err, "failure getting resource", "ManagedConnectorCluster", req.NamespacedName.String())
+		if k8serrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+
+		return ctrl.Result{}, errors.Wrapf(err, "failure getting ManagedConnectorCluster %s", req.NamespacedName)
 	}
 
 	// safety copy
@@ -141,12 +143,7 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 		}
 
 		if err := r.updateClusterStatus(ctx, mcc); err != nil {
-			meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
-				Type:    "SyncClusterStatus",
-				Status:  metav1.ConditionFalse,
-				Reason:  "Error",
-				Message: err.Error(),
-			})
+			conditions.SetError(&mcc.Status.Conditions, "SyncClusterStatus", err)
 		} else {
 			meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
 				Type:    "SyncClusterStatus",
@@ -157,12 +154,7 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 		}
 
 		if err := r.updateConnectorsStatus(ctx, mcc); err != nil {
-			meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
-				Type:    "SyncConnectorsStatus",
-				Status:  metav1.ConditionFalse,
-				Reason:  "Error",
-				Message: err.Error(),
-			})
+			conditions.SetError(&mcc.Status.Conditions, "SyncConnectorsStatus", err)
 		} else {
 			meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
 				Type:    "SyncConnectorsStatus",
@@ -173,12 +165,7 @@ func (r *ManagedConnectorClusterReconciler) Reconcile(ctx context.Context, req c
 		}
 
 		if err := r.pollAndApply(ctx, c); err != nil {
-			meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
-				Type:    "Poll",
-				Status:  metav1.ConditionFalse,
-				Reason:  "Error",
-				Message: err.Error(),
-			})
+			conditions.SetError(&mcc.Status.Conditions, "Poll", err)
 		} else {
 			meta.SetStatusCondition(&mcc.Status.Conditions, metav1.Condition{
 				Type:    "Poll",

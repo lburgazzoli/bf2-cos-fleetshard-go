@@ -68,15 +68,15 @@ func PatchStatus(
 	return true, c.Status().Patch(ctx, source, client.RawPatch(types.MergePatchType, data))
 }
 
+func Get(ctx context.Context, c client.Reader, target client.Object, opts ...client.GetOption) error {
+	return c.Get(ctx, AsNamespacedName(target), target, opts...)
+}
+
 func AsNamespacedName(obj client.Object) types.NamespacedName {
 	return types.NamespacedName{
 		Namespace: obj.GetNamespace(),
 		Name:      obj.GetName(),
 	}
-}
-
-func Get(ctx context.Context, c client.Reader, target client.Object, opts ...client.GetOption) error {
-	return c.Get(ctx, AsNamespacedName(target), target, opts...)
 }
 
 func AsObjectMeta(resource types.NamespacedName) metav1.ObjectMeta {

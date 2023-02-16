@@ -74,7 +74,7 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				return ctrl.Result{}, err
 			}
 		} else {
-			return ctrl.Result{}, client.IgnoreNotFound(err)
+			return ctrl.Result{}, err
 		}
 	}
 
@@ -109,21 +109,15 @@ func (r *ManagedConnectorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// TODO: must be properly computed or removed
 	rc.Connector.Status.Phase = "Unknown"
 
-	// if err := resources.PatchStatus(ctx, r.Client, &connector, rc.Connector); err != nil {
-	// resources.PatchStatus(ctx, r.Client, &orig, rc.Connector)
-
 	sort.SliceStable(rc.Connector.Status.Conditions, func(i, j int) bool {
 		return rc.Connector.Status.Conditions[i].Type < rc.Connector.Status.Conditions[j].Type
 	})
 
-	if err := r.Status().Update(ctx, rc.Connector); err != nil {
-		if k8serrors.IsConflict(err) {
-			l.Info(err.Error())
-			return ctrl.Result{Requeue: true}, nil
-		}
-
-		return ctrl.Result{}, err
+	err := r.Status().Update(ctx, rc.Connector)
+	if err != nil && k8serrors.IsConflict(err) {
+		l.Info(err.Error())
+		return ctrl.Result{Requeue: true}, nil
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, err
 }
