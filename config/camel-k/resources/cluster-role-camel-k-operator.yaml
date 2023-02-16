@@ -2,9 +2,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    app: camel-k
-    app.kubernetes.io/created-by: cos
-    app.kubernetes.io/part-of: cos-fleetshard
+    app: "camel-k"
   name: camel-k-operator
 rules:
   - apiGroups:

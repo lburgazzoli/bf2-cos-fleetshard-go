@@ -1,0 +1,81 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: "camel-k"
+  name: camel-k-operator-openshift
+rules:
+  - apiGroups:
+      - cos.bf2.dev
+    resources:
+      - builds/finalizers
+      - integrationkits/finalizers
+      - integrationplatforms/finalizers
+      - integrations/finalizers
+      - kameletbindings/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - ""
+      - "build.openshift.io"
+    resources:
+      - buildconfigs
+      - buildconfigs/webhooks
+      - builds
+    verbs:
+      - create
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - ""
+      - "image.openshift.io"
+    resources:
+      - imagestreamimages
+      - imagestreammappings
+      - imagestreams
+      - imagestreams/secrets
+      - imagestreamtags
+    verbs:
+      - create
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - ""
+      - build.openshift.io
+    resources:
+      - buildconfigs/instantiate
+      - buildconfigs/instantiatebinary
+      - builds/clone
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+      - "route.openshift.io"
+    resources:
+      - routes
+    verbs:
+      - create
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - ""
+      - route.openshift.io
+    resources:
+      - routes/custom-host
+    verbs:
+      - create
