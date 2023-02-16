@@ -43,31 +43,56 @@ func NewRunCmd() *cobra.Command {
 		Short: "run",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return controller.Start(options, func(manager manager.Manager, opts controller.Options) error {
+				//
 				// camel-k
+				//
+
 				if err := cos.SetupCamelControllers(manager, options); err != nil {
-					ctrl.Log.WithName("camel-k").Error(
+					ctrl.Log.Error(
 						err,
 						"unable to set-up camel-k controllers")
 
 					return err
 				}
 
-				// cos
-				if err := cos.SetupManagedConnectorClusterReconciler(manager, opts); err != nil {
-					ctrl.Log.WithName("managed-connector-cluster").Error(
-						err,
-						"unable to create controller",
-						"gvk", cosv2.GroupVersion.String()+":ManagedConnectorCluster")
+				//
+				// Sync
+				//
 
+				sync, err := cmd.Flags().GetBool("enable-sync")
+				if err != nil {
 					return err
 				}
-				if err := cos.SetupManagedConnectorReconciler(manager, opts); err != nil {
-					ctrl.Log.WithName("managed-connector").Error(
-						err,
-						"unable to create controller",
-						"gvk", cosv2.GroupVersion.String()+":ManagedConnector")
 
+				if sync {
+					if err := cos.SetupManagedConnectorClusterReconciler(manager, opts); err != nil {
+						ctrl.Log.Error(
+							err,
+							"unable to create controller",
+							"gvk", cosv2.GroupVersion.String()+":ManagedConnectorCluster")
+
+						return err
+					}
+				}
+
+				//
+				// Shard
+				//
+
+				shard, err := cmd.Flags().GetBool("enable-shard")
+				if err != nil {
 					return err
+				}
+
+				if shard {
+					if err := cos.SetupManagedConnectorReconciler(manager, opts); err != nil {
+						ctrl.Log.Error(
+							err,
+							"unable to create controller",
+							"gvk", cosv2.GroupVersion.String()+":ManagedConnector")
+
+						return err
+					}
 				}
 
 				return nil
@@ -84,10 +109,12 @@ func NewRunCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&options.EnableLeaderElection, "leader-election", options.EnableLeaderElection, "Enable leader election for controller manager.")
 	cmd.Flags().BoolVar(&options.ReleaseLeaderElectionOnCancel, "leader-election-release", options.ReleaseLeaderElectionOnCancel, "If the leader should step down voluntarily.")
 
+	cmd.Flags().Bool("enable-sync", true, "Enable sync process.")
+	cmd.Flags().Bool("enable-shard", true, "Enable shard.")
+
 	_ = cmd.MarkFlagRequired("operator-id")
 	_ = cmd.MarkFlagRequired("operator-group")
 	_ = cmd.MarkFlagRequired("operator-type")
-	_ = cmd.MarkFlagRequired("operator-version")
 
 	return &cmd
 }
