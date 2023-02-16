@@ -1,6 +1,6 @@
 images:
   - name: quay.io/lburgazzoli/cos-fleetshard
-    digest: sha256:f8e0327da8b9071f9024c6f62149f981ed7c9b2eb01ab225bbc7335d45911b5e
+    digest: sha256:15447c35f1e775e77cb93cddd5907630e018cba90dba31315bdd23896c35c646
 resources:
   - cos.yaml
   - ../../default
