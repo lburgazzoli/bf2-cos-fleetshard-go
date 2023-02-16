@@ -143,7 +143,7 @@ func (r *ManagedConnectorClusterReconciler) deployNamespaces(
 				"namespace", target.Namespace,
 				"name", target.Name,
 				"revision", target.ResourceVersion,
-				"patched", target)
+				"patched", patched)
 		}
 	}
 
