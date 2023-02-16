@@ -141,7 +141,7 @@ require (
 )
 
 replace (
-	github.com/apache/camel-k => github.com/lburgazzoli/apache-camel-k v0.0.0-20230214222449-a30afe0ad296
-	github.com/apache/camel-k/pkg/apis/camel => github.com/lburgazzoli/apache-camel-k/pkg/apis/camel v0.0.0-20230214222449-a30afe0ad296
+	github.com/apache/camel-k => github.com/lburgazzoli/apache-camel-k v0.0.0-20230216082350-a5bd403b6b4e
+	github.com/apache/camel-k/pkg/apis/camel => github.com/lburgazzoli/apache-camel-k/pkg/apis/camel v0.0.0-20230216082350-a5bd403b6b4e
 	github.com/cloudevents/sdk-go/sql/v2 => github.com/cloudevents/sdk-go/sql/v2 v2.0.0-20220930150014-52b12276cc4a
 )
