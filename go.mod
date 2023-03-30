@@ -7,7 +7,7 @@ require (
 	github.com/apache/camel-k/pkg/apis/camel v1.11.1
 	github.com/cucumber/godog v0.12.6
 	github.com/evanphx/json-patch v5.6.0+incompatible
-	github.com/go-logr/logr v1.2.3
+	github.com/go-logr/logr v1.2.4
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo/v2 v2.9.2
 	github.com/onsi/gomega v1.27.6
