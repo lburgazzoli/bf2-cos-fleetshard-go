@@ -88,7 +88,7 @@ jobs:
           yq -i 'del(.images[0].newTag)' config/overlays/dev/kustomization.yaml
           yq -i '.images[0].digest = "sha256:" + strenv(IMAGE_SHA)' config/overlays/dev/kustomization.yaml
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v4
+        uses: peter-evans/create-pull-request@v5
         env:
           IMAGE_NAME: ${{ needs.publish.outputs.imageName }}
           IMAGE_SHA: ${{ needs.publish.outputs.imageSha }}
